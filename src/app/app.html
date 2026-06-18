@@ -1,0 +1,16 @@
+<mat-toolbar class="toolbar">
+  <a routerLink="/" class="brand">⚽ WC Fantasy League</a>
+  <span class="spacer"></span>
+  <a mat-button routerLink="/matches" class="nav-link">Matches</a>
+  <a mat-button routerLink="/leaderboard" class="nav-link">Leaderboard</a>
+  @if (auth.isLoggedIn()) {
+    <a mat-button routerLink="/admin" class="nav-link admin-link">🛠 Admin</a>
+    <span class="username">{{ auth.username() }}</span>
+    <button mat-button class="nav-link" (click)="auth.logout()">Logout</button>
+  } @else {
+    <a mat-button routerLink="/login" class="nav-link">Login</a>
+  }
+</mat-toolbar>
+<main class="container">
+  <router-outlet />
+</main>
