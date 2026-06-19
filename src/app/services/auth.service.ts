@@ -1,13 +1,14 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { tap } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 interface AuthResponse { token: string; userId: number; username: string; }
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private http = inject(HttpClient);
-  private base = 'http://localhost:8081/api/auth';
+  private base = environment.apiBase + '/auth';
 
   isLoggedIn = signal(!!localStorage.getItem('token'));
   username = signal(localStorage.getItem('username') || '');
