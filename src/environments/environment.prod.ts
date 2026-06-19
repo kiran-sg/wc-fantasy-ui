@@ -1,4 +1,4 @@
 export const environment = {
   production: true,
-  apiBase: '/api'
+  apiBase: 'https://wc-fantasy-league-production.up.railway.app/api'
 };
