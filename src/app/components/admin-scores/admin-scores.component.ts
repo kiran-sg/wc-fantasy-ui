@@ -103,7 +103,7 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
             <div class="teams-row">
               <span class="team">{{ match.teamA.name }}</span>
               @if (match.status === 'COMPLETED' || match.status === 'LIVE') {
-                <span class="score">{{ match.scoreA ?? 0 }} – {{ match.scoreB ?? 0 }}</span>
+                <span class="score">{{ match.scoreA }} – {{ match.scoreB }}</span>
               } @else {
                 <span class="vs">VS</span>
               }
@@ -346,7 +346,7 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
                   <div class="sq-user-row"
                     [class.sq-user-active]="selectedUserId() === u.id"
                     (click)="selectUser(u)">
-                    <div class="sq-u-avatar">{{ u.displayName?.[0] || u.username?.[0] | uppercase }}</div>
+                    <div class="sq-u-avatar">{{ u.displayName[0] || u.username[0] | uppercase }}</div>
                     <div class="sq-u-info">
                       <span class="sq-u-name">{{ u.displayName || u.username }}</span>
                       <span class="sq-u-sub">
@@ -356,7 +356,7 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
                         }
                       </span>
                     </div>
-                    <span class="sq-u-pts">{{ u.totalPoints ?? 0 }} pts</span>
+                    <span class="sq-u-pts">{{ u.totalPoints }} pts</span>
                   </div>
                 }
                 @if (filteredUsers().length === 0 && allUsers().length > 0) {
@@ -380,16 +380,16 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
               } @else if (selectedUserTeam(); as team) {
                 <div class="single-squad">
                   <div class="sq-single-header">
-                    <div class="user-avatar">{{ team.user?.displayName?.[0] || team.user?.username?.[0] | uppercase }}</div>
+                    <div class="user-avatar">{{ team.user.displayName[0] || team.user.username[0] | uppercase }}</div>
                     <div class="user-info">
-                      <span class="user-name">{{ team.user?.displayName || team.user?.username }}</span>
+                      <span class="user-name">{{ team.user.displayName || team.user.username }}</span>
                       <span class="captain-info">
-                        C: {{ team.captain?.name || '—' }}
-                        @if (team.viceCaptain?.name) { · VC: {{ team.viceCaptain.name }} }
+                        C: {{ team.captain.name || '—' }}
+                        @if (team.viceCaptain.name) { · VC: {{ team.viceCaptain.name }} }
                       </span>
                     </div>
                     <div class="sq-points">
-                      <span class="pts-big">{{ team.user?.totalPoints ?? 0 }}</span>
+                      <span class="pts-big">{{ team.user.totalPoints }}</span>
                       <span class="pts-lbl">pts</span>
                     </div>
                   </div>
@@ -402,11 +402,11 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
                           <div class="pos-tokens">
                             @for (p of posPlayers; track p.id) {
                               <div class="player-tok"
-                                [class.tok-captain]="p.id === team.captain?.id"
-                                [class.tok-vc]="p.id === team.viceCaptain?.id">
+                                [class.tok-captain]="p.id === team.captain.id"
+                                [class.tok-vc]="p.id === team.viceCaptain.id">
                                 <span class="tok-name">{{ p.name }}</span>
-                                @if (p.id === team.captain?.id) { <span class="tok-badge tok-c">C</span> }
-                                @if (p.id === team.viceCaptain?.id) { <span class="tok-badge tok-vc">VC</span> }
+                                @if (p.id === team.captain.id) { <span class="tok-badge tok-c">C</span> }
+                                @if (p.id === team.viceCaptain.id) { <span class="tok-badge tok-vc">VC</span> }
                               </div>
                             }
                           </div>
@@ -446,8 +446,8 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
                             } @else {
                               <div class="pts-player-table">
                                 @for (s of breakdown; track s.player.id) {
-                                  @let isCap = s.player.id === team.captain?.id;
-                                  @let isVC = s.player.id === team.viceCaptain?.id;
+                                  @let isCap = s.player.id === team.captain.id;
+                                  @let isVC = s.player.id === team.viceCaptain.id;
                                   @let ppts = calcPoints(s);
                                   <div class="pts-player-row" [class.pts-row-cap]="isCap" [class.pts-row-vc]="isVC">
                                     <div class="pts-p-info">

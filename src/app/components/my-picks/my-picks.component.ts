@@ -137,18 +137,18 @@ interface PlayerBreakdown {
                   <div class="player-chips">
                     @for (p of posPlayers; track p.id) {
                       <span class="p-chip"
-                        [class.is-captain]="p.id === sq.captain?.id"
-                        [class.is-vc]="p.id === sq.viceCaptain?.id">
+                        [class.is-captain]="p.id === sq.captain.id"
+                        [class.is-vc]="p.id === sq.viceCaptain.id">
                         {{ p.name }}
-                        @if (p.id === sq.captain?.id) { <span class="role-tag c">C</span> }
-                        @if (p.id === sq.viceCaptain?.id) { <span class="role-tag vc">VC</span> }
+                        @if (p.id === sq.captain.id) { <span class="role-tag c">C</span> }
+                        @if (p.id === sq.viceCaptain.id) { <span class="role-tag vc">VC</span> }
                       </span>
                     }
                   </div>
                 </div>
               }
             }
-            @if (sq.bench?.length) {
+            @if (sq.bench.length) {
               <div class="pos-row bench-row">
                 <span class="pos-badge bench">BENCH</span>
                 <div class="player-chips">
@@ -522,8 +522,8 @@ export class MyPicksComponent implements OnInit {
 
     const rows: PlayerBreakdown[] = allPlayers.map(({ p, bench }) => {
       const s = statsById.get(p.id);
-      const isCaptain = p.id === sq.captain?.id;
-      const isVC      = p.id === sq.viceCaptain?.id;
+      const isCaptain = p.id === sq.captain.id;
+      const isVC      = p.id === sq.viceCaptain.id;
 
       if (!s) {
         return {

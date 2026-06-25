@@ -38,7 +38,7 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
             <span class="team-name">{{ match.teamA.name }}</span>
           </div>
           @if (match.status === 'COMPLETED' || match.status === 'LIVE') {
-            <span class="score">{{ match.scoreA ?? 0 }} - {{ match.scoreB ?? 0 }}</span>
+            <span class="score">{{ match.scoreA }} - {{ match.scoreB }}</span>
           } @else {
             <span class="vs">VS</span>
           }

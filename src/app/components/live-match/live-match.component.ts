@@ -23,7 +23,7 @@ import { Player, UserSquad, Match } from '../../models/models';
       <mat-card class="match-banner">
         <div class="match-score">
           <span class="team">{{ match()!.teamA.name }}</span>
-          <span class="score">{{ match()!.scoreA ?? 0 }} - {{ match()!.scoreB ?? 0 }}</span>
+          <span class="score">{{ match()!.scoreA }} - {{ match()!.scoreB }}</span>
           <span class="team">{{ match()!.teamB.name }}</span>
         </div>
         <div class="status-chip" [class.live]="match()!.status === 'LIVE'">
@@ -41,13 +41,13 @@ import { Player, UserSquad, Match } from '../../models/models';
         <div class="player-grid">
           @for (p of squad()!.players; track p.id) {
             <div class="player-tile"
-              [class.is-captain]="squad()!.captain?.id === p.id"
-              [class.is-vc]="squad()!.viceCaptain?.id === p.id"
+              [class.is-captain]="squad()!.captain.id === p.id"
+              [class.is-vc]="squad()!.viceCaptain.id === p.id"
               (click)="selectNewCaptain(p)">
               <span class="pos" [class]="p.position">{{ p.position }}</span>
               <span class="pname">{{ p.name }}</span>
-              @if (squad()!.captain?.id === p.id) { <span class="badge cap">C</span> }
-              @if (squad()!.viceCaptain?.id === p.id) { <span class="badge vc">V</span> }
+              @if (squad()!.captain.id === p.id) { <span class="badge cap">C</span> }
+              @if (squad()!.viceCaptain.id === p.id) { <span class="badge vc">V</span> }
             </div>
           }
         </div>
@@ -84,7 +84,7 @@ import { Player, UserSquad, Match } from '../../models/models';
                 <span class="bench-tag">B{{ (squad()!.bench.indexOf(p) + 1) }}</span>
               </div>
             }
-            @if (!squad()!.bench?.length) {
+            @if (!squad()!.bench.length) {
               <div class="hint-text">No bench players</div>
             }
           </div>
