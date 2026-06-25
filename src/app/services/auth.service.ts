@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { tap } from 'rxjs';
 import { environment } from '../../environments/environment';
 
-interface AuthResponse { token: string; userId: number; username: string; }
+interface AuthResponse { token: string; userId: number; username: string; isAdmin: boolean; }
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -12,6 +12,7 @@ export class AuthService {
 
   isLoggedIn = signal(!!localStorage.getItem('token'));
   username = signal(localStorage.getItem('username') || '');
+  isAdmin = signal(localStorage.getItem('isAdmin') === 'true');
 
   login(username: string) {
     return this.http.post<AuthResponse>(`${this.base}/login`, { username })
@@ -19,8 +20,10 @@ export class AuthService {
         localStorage.setItem('token', r.token);
         localStorage.setItem('userId', String(r.userId));
         localStorage.setItem('username', r.username);
+        localStorage.setItem('isAdmin', String(r.isAdmin));
         this.isLoggedIn.set(true);
         this.username.set(r.username);
+        this.isAdmin.set(r.isAdmin);
       }));
   }
 
@@ -28,6 +31,7 @@ export class AuthService {
     localStorage.clear();
     this.isLoggedIn.set(false);
     this.username.set('');
+    this.isAdmin.set(false);
   }
 
   getToken(): string | null { return localStorage.getItem('token'); }

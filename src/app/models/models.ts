@@ -13,6 +13,9 @@ export interface Player {
   team: Team;
   jerseyNumber: number;
   photoUrl: string;
+  price: number;
+  fifaPlayerName?: string;
+  totalPoints?: number;
 }
 
 export interface Match {
@@ -32,9 +35,12 @@ export interface UserSquad {
   userId: number;
   match: Match;
   players: Player[];
+  bench: Player[];
   captain: Player;
+  viceCaptain: Player;
   pointsEarned: number;
   locked: boolean;
+  manualChangesMade: boolean;
 }
 
 export interface AppUser {
@@ -42,4 +48,40 @@ export interface AppUser {
   username: string;
   displayName: string;
   totalPoints: number;
+  isAdmin?: boolean;
+  location?: string;
+}
+
+export interface RoundEntry {
+  userId: number;
+  username: string;
+  displayName: string;
+  roundPoints: number;
+}
+
+export interface UserTeam {
+  id: number;
+  user: AppUser;
+  stage: string;
+  starters: Player[];
+  bench: Player[];
+  captain: Player;
+  viceCaptain: Player;
+  manualChangesMade: boolean;
+  transfersMadeThisStage: number;
+  penaltyPoints: number;
+}
+
+export interface UserTeamMatchPoints {
+  id: number;
+  match: Match;
+  pointsEarned: number;
+  stage: string;
+}
+
+export interface UserTransferRecord {
+  id?: number;
+  stage: string;
+  transfersMade: number;
+  penaltyPoints: number;
 }

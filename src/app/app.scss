@@ -1,9 +1,15 @@
 .toolbar {
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 100;
   background: #1a237e;
   color: white;
+}
+
+.toolbar.hidden {
+  display: none;
 }
 
 .brand {
@@ -28,7 +34,75 @@
 }
 
 .container {
-  padding: 24px 16px;
+  padding: 80px 16px 24px;
   max-width: 700px;
   margin: 0 auto;
+}
+
+.container.wide {
+  max-width: 1100px;
+}
+
+.container.no-toolbar {
+  padding: 0;
+  max-width: 100%;
+  margin: 0;
+
+}
+
+@media (max-width: 768px) {
+  .container.wide {
+    max-width: 100%;
+  }
+}
+
+
+.global-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(2px);
+}
+
+.overlay-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(90deg, #1976d2 0%, #42a5f5 50%, #1976d2 100%);
+  background-size: 200% 100%;
+  animation: bar-slide 1.4s linear infinite;
+}
+
+@keyframes bar-slide {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.spinner-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.css-spinner {
+  width: 44px;
+  height: 44px;
+  border: 4px solid #e3f2fd;
+  border-top-color: #1976d2;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }

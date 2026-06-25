@@ -1,5 +1,13 @@
 @use '@angular/material' as mat;
 
+:root {
+  --mat-autocomplete-background-color: #ffffff;
+  --mat-select-panel-background-color: #ffffff;
+  --mat-menu-container-color: #ffffff;
+  --mat-option-selected-state-label-text-color: #1a237e;
+  --mat-option-focus-state-layer-color: rgba(26, 35, 126, 0.08);
+}
+
 html, body {
   height: 100%;
   margin: 0;
