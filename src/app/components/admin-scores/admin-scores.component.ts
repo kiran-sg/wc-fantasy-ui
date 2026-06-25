@@ -101,13 +101,13 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
             </div>
 
             <div class="teams-row">
-              <span class="team">{{ match.teamA.name }}</span>
+              <span class="team">{{ match.teamA?.name ?? match.teamALabel ?? 'TBD' }}</span>
               @if (match.status === 'COMPLETED' || match.status === 'LIVE') {
                 <span class="score">{{ match.scoreA }} – {{ match.scoreB }}</span>
               } @else {
                 <span class="vs">VS</span>
               }
-              <span class="team">{{ match.teamB.name }}</span>
+              <span class="team">{{ match.teamB?.name ?? match.teamBLabel ?? 'TBD' }}</span>
             </div>
 
             <div class="actions-row">
@@ -146,8 +146,8 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
                     </div>
                     <div class="stats-team-btns">
                       <button class="st-btn" [class.active]="statsTeamFilter() === null" (click)="statsTeamFilter.set(null)">All</button>
-                      <button class="st-btn" [class.active]="statsTeamFilter() === match.teamA.name" (click)="statsTeamFilter.set(match.teamA.name)">{{ match.teamA.name }}</button>
-                      <button class="st-btn" [class.active]="statsTeamFilter() === match.teamB.name" (click)="statsTeamFilter.set(match.teamB.name)">{{ match.teamB.name }}</button>
+                      <button class="st-btn" [class.active]="statsTeamFilter() === (match.teamA?.name ?? match.teamALabel)" (click)="statsTeamFilter.set(match.teamA?.name ?? match.teamALabel ?? null)">{{ match.teamA?.name ?? match.teamALabel ?? 'TBD' }}</button>
+                      <button class="st-btn" [class.active]="statsTeamFilter() === (match.teamB?.name ?? match.teamBLabel)" (click)="statsTeamFilter.set(match.teamB?.name ?? match.teamBLabel ?? null)">{{ match.teamB?.name ?? match.teamBLabel ?? 'TBD' }}</button>
                     </div>
                   </div>
                   <div class="stats-title">Player Stats — {{ filteredPlayerStats().length }}<span class="stats-total"> / {{ playerStats().length }}</span></div>
@@ -427,7 +427,7 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
                           <div class="pts-match-header" (click)="toggleMatchBreakdown(mp.match.id)">
                             <div class="pts-match-left">
                               <span class="pts-stage-tag">{{ mp.stage }}</span>
-                              <span class="pts-match-name">{{ mp.match.teamA.name }} vs {{ mp.match.teamB.name }}</span>
+                              <span class="pts-match-name">{{ mp.match.teamA?.name ?? mp.match.teamALabel ?? 'TBD' }} vs {{ mp.match.teamB?.name ?? mp.match.teamBLabel ?? 'TBD' }}</span>
                               <span class="pts-match-score">{{ mp.match.scoreA ?? '?' }}–{{ mp.match.scoreB ?? '?' }}</span>
                             </div>
                             <div class="pts-match-right">
@@ -784,7 +784,9 @@ export class AdminScoresComponent implements OnInit {
     const list = this.finishedMatches();
     if (!q) return list;
     return list.filter(m => {
-      const teams = `${m.teamA.name} ${m.teamB.name}`.toLowerCase();
+      const nameA = m.teamA?.name ?? m.teamALabel ?? '';
+      const nameB = m.teamB?.name ?? m.teamBLabel ?? '';
+      const teams = `${nameA} ${nameB}`.toLowerCase();
       const date = this.formatShortDate(m.matchTime).toLowerCase();
       return teams.includes(q) || date.includes(q);
     });

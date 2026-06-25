@@ -22,9 +22,9 @@ import { Player, UserSquad, Match } from '../../models/models';
     @if (match()) {
       <mat-card class="match-banner">
         <div class="match-score">
-          <span class="team">{{ match()!.teamA.name }}</span>
+          <span class="team">{{ match()!.teamA?.name ?? match()!.teamALabel ?? 'TBD' }}</span>
           <span class="score">{{ match()!.scoreA }} - {{ match()!.scoreB }}</span>
-          <span class="team">{{ match()!.teamB.name }}</span>
+          <span class="team">{{ match()!.teamB?.name ?? match()!.teamBLabel ?? 'TBD' }}</span>
         </div>
         <div class="status-chip" [class.live]="match()!.status === 'LIVE'">
           {{ match()!.status }}

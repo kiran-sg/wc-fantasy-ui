@@ -94,18 +94,18 @@ interface PlayerBreakdown {
             [class.completed]="sq.match.status === 'COMPLETED'">
             <div class="header-left">
               <div class="match-teams">
-                @if (sq.match.teamA.flagUrl) {
-                  <img class="flag" [src]="sq.match.teamA.flagUrl" [alt]="sq.match.teamA.name">
+                @if (sq.match.teamA?.flagUrl) {
+                  <img class="flag" [src]="sq.match.teamA!.flagUrl" [alt]="sq.match.teamA!.name">
                 }
-                <span class="team-name">{{ sq.match.teamA.name }}</span>
+                <span class="team-name">{{ sq.match.teamA?.name ?? sq.match.teamALabel ?? 'TBD' }}</span>
                 @if (sq.match.status === 'COMPLETED') {
                   <span class="score-inline">{{ sq.match.scoreA }} – {{ sq.match.scoreB }}</span>
                 } @else {
                   <span class="vs-inline">vs</span>
                 }
-                <span class="team-name">{{ sq.match.teamB.name }}</span>
-                @if (sq.match.teamB.flagUrl) {
-                  <img class="flag" [src]="sq.match.teamB.flagUrl" [alt]="sq.match.teamB.name">
+                <span class="team-name">{{ sq.match.teamB?.name ?? sq.match.teamBLabel ?? 'TBD' }}</span>
+                @if (sq.match.teamB?.flagUrl) {
+                  <img class="flag" [src]="sq.match.teamB!.flagUrl" [alt]="sq.match.teamB!.name">
                 }
               </div>
               <div class="meta-row">
@@ -620,7 +620,7 @@ export class MyPicksComponent implements OnInit {
       .replace(/\bdecember\b/, 'dec');
     const nq = norm(q);
     this.filteredSquads.set(this.squads().filter(sq => {
-      const teams = `${sq.match.teamA.name} ${sq.match.teamB.name}`.toLowerCase();
+      const teams = `${sq.match.teamA?.name ?? sq.match.teamALabel ?? ''} ${sq.match.teamB?.name ?? sq.match.teamBLabel ?? ''}`.toLowerCase();
       const date  = norm(this.formatDate(sq.match.matchTime).toLowerCase());
       return teams.includes(nq) || date.includes(nq);
     }));

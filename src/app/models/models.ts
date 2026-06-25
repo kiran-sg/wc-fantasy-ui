@@ -20,8 +20,10 @@ export interface Player {
 
 export interface Match {
   id: number;
-  teamA: Team;
-  teamB: Team;
+  teamA: Team | null;
+  teamB: Team | null;
+  teamALabel: string | null;
+  teamBLabel: string | null;
   matchTime: string;
   venue: string;
   stage: string;

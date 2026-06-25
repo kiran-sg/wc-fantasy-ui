@@ -29,9 +29,9 @@ function parseFormation(f: string): string[] {
   <div class="top-bar">
     @if (match()) {
       <div class="match-row">
-        <span class="team-a">{{ match()!.teamA.name }}</span>
+        <span class="team-a">{{ match()!.teamA?.name ?? match()!.teamALabel ?? 'TBD' }}</span>
         <span class="vs-sep">vs</span>
-        <span class="team-b">{{ match()!.teamB.name }}</span>
+        <span class="team-b">{{ match()!.teamB?.name ?? match()!.teamBLabel ?? 'TBD' }}</span>
         <span class="stage-tag">{{ match()!.stage }}</span>
       </div>
     }
@@ -684,10 +684,10 @@ export class SquadBuilderComponent implements OnInit {
       this.match.set(m);
       if (!m) return;
       const players: Player[] = [];
-      this.api.getPlayersByTeam(m.teamA.id).subscribe(pa => {
-        players.push(...pa);
-        this.api.getPlayersByTeam(m.teamB.id).subscribe(pb => {
-          players.push(...pb);
+      const loadA = m.teamA ? this.api.getPlayersByTeam(m.teamA.id) : null;
+      const loadB = m.teamB ? this.api.getPlayersByTeam(m.teamB.id) : null;
+      const doLoad = (obs: typeof loadA, next: () => void) => obs ? obs.subscribe(p => { players.push(...p); next(); }) : next();
+      doLoad(loadA, () => doLoad(loadB, () => {
           this.allPlayers.set(players);
           const uid = this.auth.getUserId();
           if (uid) {
@@ -709,8 +709,7 @@ export class SquadBuilderComponent implements OnInit {
               error: () => {}
             });
           }
-        });
-      });
+        }));
     });
   }
 

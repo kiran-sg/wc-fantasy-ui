@@ -46,7 +46,7 @@ import { AppUser, Match, RoundEntry } from '../../models/models';
             <mat-select [(ngModel)]="selectedMatchId" (ngModelChange)="loadRound($event)">
               @for (m of matches(); track m.id) {
                 <mat-option [value]="m.id">
-                  {{ m.teamA.name }} vs {{ m.teamB.name }} · {{ m.stage }}
+                  {{ m.teamA?.name ?? m.teamALabel ?? 'TBD' }} vs {{ m.teamB?.name ?? m.teamBLabel ?? 'TBD' }} · {{ m.stage }}
                 </mat-option>
               }
             </mat-select>

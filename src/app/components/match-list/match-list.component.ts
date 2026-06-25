@@ -32,10 +32,10 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
         </div>
         <div class="teams">
           <div class="team">
-            @if (match.teamA.flagUrl) {
-              <img class="team-flag" [src]="match.teamA.flagUrl" [alt]="match.teamA.name">
+            @if (match.teamA?.flagUrl) {
+              <img class="team-flag" [src]="match.teamA!.flagUrl" [alt]="match.teamA!.name">
             }
-            <span class="team-name">{{ match.teamA.name }}</span>
+            <span class="team-name">{{ match.teamA?.name ?? match.teamALabel ?? 'TBD' }}</span>
           </div>
           @if (match.status === 'COMPLETED' || match.status === 'LIVE') {
             <span class="score">{{ match.scoreA }} - {{ match.scoreB }}</span>
@@ -43,10 +43,10 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
             <span class="vs">VS</span>
           }
           <div class="team">
-            @if (match.teamB.flagUrl) {
-              <img class="team-flag" [src]="match.teamB.flagUrl" [alt]="match.teamB.name">
+            @if (match.teamB?.flagUrl) {
+              <img class="team-flag" [src]="match.teamB!.flagUrl" [alt]="match.teamB!.name">
             }
-            <span class="team-name">{{ match.teamB.name }}</span>
+            <span class="team-name">{{ match.teamB?.name ?? match.teamBLabel ?? 'TBD' }}</span>
           </div>
         </div>
         <div class="match-info">
