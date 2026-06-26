@@ -148,6 +148,10 @@ export class ApiService {
     return this.http.post(`${this.base}/admin/users`, { username, displayName, location, isAdmin });
   }
 
+  adminUpdatePlayerPrice(playerId: number, priceInUnits: number): Observable<any> {
+    return this.http.patch(`${this.base}/admin/players/${playerId}/price?value=${priceInUnits}`, {});
+  }
+
   adminBulkUploadUsers(file: File): Observable<any> {
     const form = new FormData();
     form.append('file', file);

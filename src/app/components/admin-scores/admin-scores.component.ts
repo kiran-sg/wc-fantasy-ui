@@ -6,7 +6,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTableModule } from '@angular/material/table';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatExpansionModule } from '@angular/material/expansion';
-import { MatTabsModule } from '@angular/material/tabs';
+import { MatTabsModule, MatTabChangeEvent } from '@angular/material/tabs';
 import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -36,7 +36,7 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
 
     <h3 class="page-title">⚡ Admin Panel</h3>
 
-    <mat-tab-group class="admin-tabs" animationDuration="150ms">
+    <mat-tab-group class="admin-tabs" animationDuration="150ms" (selectedTabChange)="onTabChange($event)">
 
       <!-- ═══════════════════ TAB 1: SCORE PANEL ═══════════════════ -->
       <mat-tab label="📊 Score Panel">
@@ -598,6 +598,67 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
         </div>
       </mat-tab>
 
+      <mat-tab label="⚽ Player Pool">
+        <div class="pp-wrap">
+          <div class="pp-controls">
+            <input class="pp-search" placeholder="Search player or team…" [(ngModel)]="ppSearch" (ngModelChange)="filterPlayers()">
+            <select class="pp-pos-filter" [(ngModel)]="ppPos" (ngModelChange)="filterPlayers()">
+              <option value="">All positions</option>
+              <option value="GK">GK</option>
+              <option value="DEF">DEF</option>
+              <option value="MID">MID</option>
+              <option value="FWD">FWD</option>
+            </select>
+          </div>
+
+          <div class="pp-table">
+            <div class="pp-header">
+              <span class="pp-col pp-name">Player</span>
+              <span class="pp-col pp-team">Team</span>
+              <span class="pp-col pp-pos">Pos</span>
+              <span class="pp-col pp-price">Price</span>
+              <span class="pp-col pp-action"></span>
+            </div>
+            @for (p of ppFiltered(); track p.id) {
+              <div class="pp-row">
+                <span class="pp-col pp-name">{{ p.name }}</span>
+                <span class="pp-col pp-team">{{ p.team?.name }}</span>
+                <span class="pp-col pp-pos">
+                  <span class="pp-pos-badge" [style.background]="ppPosColor(p.position)">{{ p.position }}</span>
+                </span>
+                <span class="pp-col pp-price">
+                  @if (ppEditId() === p.id) {
+                    <input class="pp-price-input" type="number" step="100000" min="1000000"
+                      [(ngModel)]="ppEditPrice" (keyup.enter)="savePpPrice(p)" (keyup.escape)="ppEditId.set(null)">
+                  } @else {
+                    {{ fmtM(p.price) }}
+                  }
+                </span>
+                <span class="pp-col pp-action">
+                  @if (ppEditId() === p.id) {
+                    <button class="pp-save-btn" (click)="savePpPrice(p)"
+                      [disabled]="ppSaving()">
+                      @if (ppSaving()) { <mat-spinner diameter="12" style="display:inline-block"></mat-spinner> }
+                      @else { ✓ }
+                    </button>
+                    <button class="pp-cancel-btn" (click)="ppEditId.set(null)">✕</button>
+                  } @else {
+                    <button class="pp-edit-btn" (click)="startPpEdit(p)">Edit</button>
+                  }
+                </span>
+              </div>
+            }
+            @if (ppFiltered().length === 0) {
+              <div class="pp-empty">No players match</div>
+            }
+          </div>
+
+          @if (ppMsg()) {
+            <div class="pp-msg" [class.pp-err]="ppMsgErr()">{{ ppMsg() }}</div>
+          }
+        </div>
+      </mat-tab>
+
     </mat-tab-group>
   `,
   styles: [`
@@ -874,6 +935,34 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
     .rc-sync-btn:disabled { opacity: 0.6; cursor: default; }
     .rc-msg { margin-top: 10px; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; background: #f1f8e9; color: #2e7d32; }
     .rc-msg.rc-err { background: #ffebee; color: #c62828; }
+
+    /* ── Player Pool tab ── */
+    .pp-wrap { padding: 8px 0; }
+    .pp-controls { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+    .pp-search { flex: 1; min-width: 160px; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; outline: none; }
+    .pp-search:focus { border-color: #3f51b5; }
+    .pp-pos-filter { padding: 8px 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; outline: none; background: #fff; cursor: pointer; }
+    .pp-table { border: 1px solid #e0e0e0; border-radius: 10px; overflow: hidden; }
+    .pp-header { display: flex; align-items: center; padding: 8px 12px; background: #f5f5f5; border-bottom: 1px solid #e0e0e0; font-size: 11px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: .5px; }
+    .pp-row { display: flex; align-items: center; padding: 8px 12px; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+    .pp-row:last-child { border-bottom: none; }
+    .pp-row:hover { background: #fafafa; }
+    .pp-col { display: flex; align-items: center; }
+    .pp-name   { flex: 2; font-weight: 500; }
+    .pp-team   { flex: 1.5; color: #555; font-size: 12px; }
+    .pp-pos    { width: 52px; justify-content: center; }
+    .pp-price  { width: 100px; justify-content: flex-end; font-weight: 700; color: #1a237e; }
+    .pp-action { width: 100px; justify-content: flex-end; gap: 4px; }
+    .pp-pos-badge { padding: 2px 7px; border-radius: 4px; color: #fff; font-size: 10px; font-weight: 900; }
+    .pp-price-input { width: 80px; padding: 4px 6px; border: 1.5px solid #3f51b5; border-radius: 6px; font-size: 12px; font-weight: 700; text-align: right; outline: none; }
+    .pp-edit-btn   { padding: 4px 10px; font-size: 11px; font-weight: 700; background: #e8eaf6; color: #3f51b5; border: 1px solid #c5cae9; border-radius: 6px; cursor: pointer; }
+    .pp-edit-btn:hover { background: #c5cae9; }
+    .pp-save-btn   { padding: 4px 10px; font-size: 12px; font-weight: 700; background: #1b5e20; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
+    .pp-save-btn:disabled { opacity: .5; cursor: not-allowed; }
+    .pp-cancel-btn { padding: 4px 8px; font-size: 12px; background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; border-radius: 6px; cursor: pointer; }
+    .pp-empty { padding: 20px; text-align: center; color: #999; font-size: 13px; }
+    .pp-msg { margin-top: 10px; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; background: #f1f8e9; color: #2e7d32; }
+    .pp-msg.pp-err { background: #ffebee; color: #c62828; }
   `]
 })
 export class AdminScoresComponent implements OnInit {
@@ -1210,6 +1299,69 @@ export class AdminScoresComponent implements OnInit {
     this.showBulkUpload.set(false);
     this.uploadFile = null;
     this.uploadResult.set(null);
+  }
+
+  onTabChange(e: MatTabChangeEvent) {
+    if (e.index === 4 && this.allPpPlayers().length === 0) this.loadPpPlayers();
+  }
+
+  // ── Player Pool ─────────────────────────────────────────────────────────────
+  allPpPlayers  = signal<any[]>([]);
+  ppFiltered    = signal<any[]>([]);
+  ppSearch      = '';
+  ppPos         = '';
+  ppEditId      = signal<number | null>(null);
+  ppEditPrice   = 0;
+  ppSaving      = signal(false);
+  ppMsg         = signal('');
+  ppMsgErr      = signal(false);
+
+  loadPpPlayers() {
+    this.api.getAllPlayers().subscribe({ next: players => { this.allPpPlayers.set(players); this.filterPlayers(); } });
+  }
+
+  filterPlayers() {
+    const q = this.ppSearch.trim().toLowerCase();
+    const pos = this.ppPos;
+    let list = this.allPpPlayers();
+    if (pos) list = list.filter(p => p.position === pos);
+    if (q)   list = list.filter(p => p.name.toLowerCase().includes(q) || p.team?.name?.toLowerCase().includes(q));
+    list = [...list].sort((a, b) => (a.team?.name ?? '').localeCompare(b.team?.name ?? '') || a.name.localeCompare(b.name));
+    this.ppFiltered.set(list);
+  }
+
+  startPpEdit(p: any) {
+    this.ppEditId.set(p.id);
+    this.ppEditPrice = p.price ?? 0;
+    this.ppMsg.set('');
+  }
+
+  savePpPrice(p: any) {
+    if (!this.ppEditPrice || this.ppEditPrice < 1_000_000) {
+      this.ppMsg.set('Price must be at least 1,000,000'); this.ppMsgErr.set(true); return;
+    }
+    this.ppSaving.set(true);
+    this.api.adminUpdatePlayerPrice(p.id, this.ppEditPrice).subscribe({
+      next: () => {
+        this.ppSaving.set(false);
+        this.ppEditId.set(null);
+        p.price = this.ppEditPrice;
+        this.ppMsg.set(`✅ ${p.name} price updated to ${this.fmtM(this.ppEditPrice)}`);
+        this.ppMsgErr.set(false);
+        this.filterPlayers();
+      },
+      error: () => { this.ppSaving.set(false); this.ppMsg.set('Failed to update price'); this.ppMsgErr.set(true); }
+    });
+  }
+
+  fmtM(price: number): string {
+    if (!price) return '—';
+    return '$' + (price / 1_000_000).toFixed(1) + 'm';
+  }
+
+  ppPosColor(pos: string): string {
+    const map: Record<string, string> = { GK: '#f59e0b', DEF: '#10b981', MID: '#3b82f6', FWD: '#ef4444' };
+    return map[pos] ?? '#9ca3af';
   }
 
   selectUser(u: AppUser) {
