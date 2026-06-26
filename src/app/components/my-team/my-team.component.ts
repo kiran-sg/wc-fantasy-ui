@@ -12,6 +12,11 @@ const POS_COLOR: Record<string, string> = { GK: '#f59e0b', DEF: '#10b981', MID: 
 const DEFAULT_FREE_TRANSFERS: Record<string, number> = { GROUP: Infinity, R32: 4, R16: 4, QF: 4, SF: 5, FINAL: 6 };
 const DEFAULT_COUNTRY_LIMIT:  Record<string, number> = { GROUP: 3, R32: 3, R16: 4, QF: 5, SF: 6, FINAL: 8 };
 
+const STAGE_LABEL: Record<string, string> = {
+  GROUP: 'Before Round of 32', R32: 'Round of 32', R16: 'Round of 16',
+  QF: 'Quarter-Final', SF: 'Semi-Final', FINAL: 'Final'
+};
+
 type SlotRef = { pos: string; type: 'xi' | 'bench'; i: number };
 
 // formation string → [DEF, MID, FWD] counts (GK is always 1)
@@ -103,13 +108,13 @@ const BENCH_ROW: SlotRef[] = [
           <div class="hb-pill-lbl">Bench</div>
         </div>
     </div>
-    @if (existingTeam() && transferRecord()) {
-      <div class="hb-transfers" [class.penalty]="(transferRecord()?.penaltyPoints ?? 0) > 0">
-        <span class="tf-count">{{ isUnlimitedStage() ? '∞ free' : transfersRemaining() + ' free left' }}</span>
+    @if (existingTeam() && !isUnlimitedStage()) {
+      <div class="hb-transfers" [class.penalty]="transfersRemaining() === 0">
+        <span class="tf-count">{{ transfersRemaining() }}/{{ freeTransfersForStage() }} free</span>
         @if ((transferRecord()?.penaltyPoints ?? 0) > 0) {
-          <span class="tf-penalty">−{{ transferRecord()?.penaltyPoints }}pts spent</span>
+          <span class="tf-penalty">−{{ transferRecord()?.penaltyPoints }}pts used</span>
         } @else {
-          <span class="tf-free">{{ currentStage() }}</span>
+          <span class="tf-stage">{{ stageLabel() }}</span>
         }
       </div>
     }
@@ -121,30 +126,44 @@ const BENCH_ROW: SlotRef[] = [
     <!-- ── LEFT: PITCH ── -->
     <div class="pitch-col" (click)="$event.stopPropagation()">
 
-      <!-- Transfer panel — only for limited stages with pending transfers -->
+      <!-- Transfer panel — shown for limited stages (R32 onwards) -->
       @if (existingTeam() && !isUnlimitedStage()) {
         <div class="transfer-panel">
-          <div class="tp-stage">
-            <span class="tp-stage-badge">{{ currentStage() }}</span>
-            <span class="tp-stage-lbl">Stage</span>
+          <div class="tp-stage-col">
+            <span class="tp-stage-badge">{{ stageLabel() }}</span>
+            <span class="tp-window-lbl">
+              Window: {{ fmtHour(currentConfig()?.windowOpenHour ?? 12) }}–{{ fmtHour(currentConfig()?.windowCloseHour ?? 19) }} IST daily
+            </span>
           </div>
           <div class="tp-divider"></div>
           <div class="tp-stat">
-            <div class="tp-val">{{ transferRecord()?.transfersMade ?? 0 }}</div>
+            <div class="tp-val">{{ freeTransfersForStage() }}</div>
+            <div class="tp-lbl">Allowed</div>
+          </div>
+          <div class="tp-stat">
+            <div class="tp-val" [class.used-all]="(transferRecord()?.transfersMade ?? 0) >= freeTransfersForStage()">
+              {{ transferRecord()?.transfersMade ?? 0 }}
+            </div>
             <div class="tp-lbl">Used</div>
           </div>
           <div class="tp-stat">
-            <div class="tp-val free" [class.zero]="transfersRemaining() === 0">{{ transfersRemaining() }}</div>
+            <div class="tp-val free" [class.zero]="transfersRemaining() === 0">
+              {{ isUnlimitedStage() ? '∞' : transfersRemaining() }}
+            </div>
             <div class="tp-lbl">Free Left</div>
           </div>
-          <div class="tp-stat">
-            <div class="tp-val" [class.pending]="pendingTransfers() > 0">{{ pendingTransfers() }}</div>
-            <div class="tp-lbl">Pending</div>
-          </div>
+          @if (pendingTransfers() > 0) {
+            <div class="tp-stat">
+              <div class="tp-val" [class.penalty]="transferPenalty() > 0">
+                {{ pendingTransfers() }}
+              </div>
+              <div class="tp-lbl">Pending</div>
+            </div>
+          }
           @if (transferPenalty() > 0) {
-            <div class="tp-penalty-pill">−{{ transferPenalty() }} pts penalty</div>
-          } @else if (pendingTransfers() > 0) {
-            <div class="tp-free-pill">Free transfers</div>
+            <div class="tp-penalty-pill">−{{ transferPenalty() }} pts!</div>
+          } @else if (pendingTransfers() > 0 && transfersRemaining() > 0) {
+            <div class="tp-free-pill">Free ✓</div>
           }
         </div>
       }
@@ -304,7 +323,7 @@ const BENCH_ROW: SlotRef[] = [
             🔒 Transfer window closed · Opens {{ fmtHour(currentConfig()?.windowOpenHour ?? 12) }} IST
           </div>
         }
-        <button class="save-btn" [disabled]="!canSave()" (click)="saveTeam()">
+        <button class="save-btn" [disabled]="!canSave()" (click)="confirmSave()">
           {{ saveButtonLabel() }}
         </button>
       </div>
@@ -439,19 +458,21 @@ const BENCH_ROW: SlotRef[] = [
     .pitch-col { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: 6px 10px 0; overflow: hidden; }
 
     /* Transfer panel */
-    .transfer-panel { display: flex; align-items: center; background: #0d0d0d; border: 1px solid #1f2937; border-radius: 8px; padding: 5px 10px; margin-bottom: 5px; flex-shrink: 0; }
-    .tp-stage { display: flex; align-items: center; gap: 6px; margin-right: 8px; }
-    .tp-stage-badge { background: #1d4ed8; color: #fff; font-size: 10px; font-weight: 900; padding: 2px 8px; border-radius: 4px; }
-    .tp-stage-lbl { color: #6b7280; font-size: 9px; text-transform: uppercase; }
-    .tp-divider { width: 1px; background: #1f2937; height: 26px; margin: 0 10px; flex-shrink: 0; }
-    .tp-stat { display: flex; flex-direction: column; align-items: center; min-width: 42px; }
-    .tp-val { color: #fff; font-size: 16px; font-weight: 900; line-height: 1.1; }
-    .tp-val.free  { color: #4ade80; }
+    .transfer-panel { display: flex; align-items: center; background: #0d0d0d; border: 1px solid #1f2937; border-radius: 8px; padding: 6px 10px; margin-bottom: 5px; flex-shrink: 0; gap: 2px; flex-wrap: wrap; }
+    .tp-stage-col { display: flex; flex-direction: column; gap: 2px; margin-right: 4px; }
+    .tp-stage-badge { background: #1d4ed8; color: #fff; font-size: 10px; font-weight: 900; padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
+    .tp-window-lbl { color: #6b7280; font-size: 8px; white-space: nowrap; }
+    .tp-divider { width: 1px; background: #1f2937; height: 32px; margin: 0 8px; flex-shrink: 0; }
+    .tp-stat { display: flex; flex-direction: column; align-items: center; min-width: 38px; }
+    .tp-val { color: #fff; font-size: 15px; font-weight: 900; line-height: 1.1; }
+    .tp-val.free      { color: #4ade80; }
     .tp-val.free.zero { color: #f87171; }
-    .tp-val.pending { color: #fbbf24; }
+    .tp-val.used-all  { color: #f87171; }
+    .tp-val.penalty   { color: #fbbf24; }
     .tp-lbl { color: #6b7280; font-size: 8px; text-transform: uppercase; }
     .tp-penalty-pill { margin-left: auto; background: #450a0a; color: #fca5a5; border: 1px solid #7f1d1d; border-radius: 20px; padding: 3px 10px; font-size: 11px; font-weight: 800; white-space: nowrap; }
     .tp-free-pill { margin-left: auto; background: #052e16; color: #4ade80; border: 1px solid #14532d; border-radius: 20px; padding: 3px 10px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+    .tf-stage { color: #60a5fa; font-size: 9px; font-weight: 600; }
 
     /* ── PITCH ── */
     .pitch {
@@ -835,6 +856,8 @@ export class MyTeamComponent implements OnInit {
     const origStarters = new Set(this.existingTeam()!.starters.map((p: Player) => p.id));
     return [...this.starterIds()].some(id => !origStarters.has(id));
   });
+
+  stageLabel = computed(() => STAGE_LABEL[this.currentStage()] ?? this.currentStage());
 
   saveButtonLabel = computed(() => {
     if (!this.existingTeam()) return 'Save My Team';
@@ -1260,6 +1283,37 @@ export class MyTeamComponent implements OnInit {
   }
 
   // ── Save ──────────────────────────────────────────────────────────────────
+
+  confirmSave() {
+    const penalty = this.transferPenalty();
+    const pending = this.pendingTransfers();
+    const free    = this.transfersRemaining();
+    const stage   = this.stageLabel();
+
+    if (!this.isUnlimitedStage() && pending > 0 && penalty > 0) {
+      const used   = this.transferRecord()?.transfersMade ?? 0;
+      const total  = this.freeTransfersForStage();
+      const overBy = pending - Math.max(0, free);
+      const msg =
+        `⚠️ Penalty Transfer Warning\n\n` +
+        `Stage: ${stage}\n` +
+        `Free transfers allowed: ${total}\n` +
+        `Already used this stage: ${used}\n` +
+        `Free remaining: ${free}\n` +
+        `You're making: ${pending} transfer${pending > 1 ? 's' : ''}\n` +
+        `Transfers beyond free limit: ${overBy}\n\n` +
+        `This will cost you −${penalty} points (${overBy} × 3 pts each).\n\n` +
+        `Confirm?`;
+      if (!confirm(msg)) return;
+    } else if (!this.isUnlimitedStage() && pending > 0) {
+      const msg =
+        `Confirm ${pending} free transfer${pending > 1 ? 's' : ''}?\n\n` +
+        `Stage: ${stage}  |  Free remaining after this: ${Math.max(0, free - pending)}\n` +
+        `No points penalty.`;
+      if (!confirm(msg)) return;
+    }
+    this.saveTeam();
+  }
 
   saveTeam() {
     const cap = this.captainId(); const vc = this.vcId();
