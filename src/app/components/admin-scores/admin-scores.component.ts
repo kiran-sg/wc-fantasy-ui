@@ -389,6 +389,8 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
                       </span>
                     </div>
                     <span class="sq-u-pts">{{ u.totalPoints }} pts</span>
+                    <button class="sq-u-del-btn" title="Delete user"
+                      (click)="$event.stopPropagation(); deleteUser(u)">🗑</button>
                   </div>
                 }
                 @if (filteredUsers().length === 0 && allUsers().length > 0) {
@@ -764,7 +766,9 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
     .sq-u-info { flex: 1; min-width: 0; }
     .sq-u-name { display: block; font-size: 13px; font-weight: 600; color: #1a1a1a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .sq-u-sub { display: block; font-size: 10px; color: #999; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .sq-u-pts { font-size: 11px; font-weight: 700; color: #1a237e; white-space: nowrap; flex-shrink: 0; }
+    .sq-u-pts { font-size: 11px; font-weight: 700; color: #1a237e; white-space: nowrap; flex-shrink: 0; margin-left: auto; }
+    .sq-u-del-btn { flex-shrink: 0; background: none; border: none; cursor: pointer; font-size: 14px; padding: 4px 6px; border-radius: 6px; opacity: 0.4; transition: opacity .15s, background .15s; }
+    .sq-u-del-btn:hover { opacity: 1; background: #ffebee; }
     .sq-u-loc { display: inline-block; font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 4px; margin-left: 4px; vertical-align: middle; }
     .sq-u-loc.tvm { background: #e3f2fd; color: #1565c0; }
     .sq-u-loc.pune { background: #fce4ec; color: #c62828; }
@@ -1260,6 +1264,20 @@ export class AdminScoresComponent implements OnInit {
         this.addingUser.set(false);
         this.addUserError.set('Failed to create user.');
       }
+    });
+  }
+
+  deleteUser(u: AppUser) {
+    if (!confirm(`Delete "${u.displayName || u.username}"?\n\nThis will remove their account and all squad data permanently.`)) return;
+    this.api.adminDeleteUser(u.id).subscribe({
+      next: () => {
+        if (this.selectedUserId() === u.id) {
+          this.selectedUserId.set(null);
+          this.selectedUserTeam.set(null);
+        }
+        this.loadUsers();
+      },
+      error: err => alert(err?.error?.error || 'Failed to delete user')
     });
   }
 

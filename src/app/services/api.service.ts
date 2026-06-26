@@ -144,6 +144,10 @@ export class ApiService {
     return this.http.get<any[]>(`${this.base}/admin/match-squads/${matchId}`);
   }
 
+  adminDeleteUser(userId: number): Observable<any> {
+    return this.http.delete(`${this.base}/admin/users/${userId}`);
+  }
+
   adminCreateUser(username: string, displayName: string, location: string, isAdmin: boolean): Observable<any> {
     return this.http.post(`${this.base}/admin/users`, { username, displayName, location, isAdmin });
   }
