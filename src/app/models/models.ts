@@ -54,13 +54,6 @@ export interface AppUser {
   location?: string;
 }
 
-export interface RoundEntry {
-  userId: number;
-  username: string;
-  displayName: string;
-  roundPoints: number;
-}
-
 export interface UserTeam {
   id: number;
   user: AppUser;

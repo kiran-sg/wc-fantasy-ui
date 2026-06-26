@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
-import { Team, Player, Match, UserSquad, AppUser, RoundEntry, UserTeam, UserTeamMatchPoints, UserTransferRecord, RoundConfig } from '../models/models';
+import { Team, Player, Match, UserSquad, AppUser, UserTeam, UserTeamMatchPoints, UserTransferRecord, RoundConfig } from '../models/models';
 import { environment } from '../../environments/environment';
 
 @Injectable({ providedIn: 'root' })
@@ -57,10 +57,6 @@ export class ApiService {
 
   getOverallLeaderboard(): Observable<AppUser[]> {
     return this.http.get<AppUser[]>(`${this.base}/leaderboard`);
-  }
-
-  getRoundLeaderboard(matchId: number): Observable<RoundEntry[]> {
-    return this.http.get<RoundEntry[]>(`${this.base}/leaderboard/round/${matchId}`);
   }
 
   // Persistent team endpoints

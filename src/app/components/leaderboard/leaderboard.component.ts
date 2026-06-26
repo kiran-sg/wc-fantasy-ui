@@ -1,109 +1,85 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
-import { MatTableModule } from '@angular/material/table';
-import { MatCardModule } from '@angular/material/card';
-import { MatTabsModule } from '@angular/material/tabs';
-import { MatSelectModule } from '@angular/material/select';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../services/api.service';
-import { AppUser, Match, RoundEntry } from '../../models/models';
+import { AppUser } from '../../models/models';
 
 @Component({
   selector: 'app-leaderboard',
   standalone: true,
-  imports: [MatTableModule, MatCardModule, MatTabsModule, MatSelectModule, MatFormFieldModule, FormsModule],
+  imports: [],
   template: `
-    <h3 class="page-title">🏆 Leaderboard</h3>
-
-    <mat-tab-group>
-      <!-- Overall -->
-      <mat-tab label="Overall">
-        <mat-card class="table-card">
-          <table mat-table [dataSource]="overall()">
-            <ng-container matColumnDef="rank">
-              <th mat-header-cell *matHeaderCellDef>#</th>
-              <td mat-cell *matCellDef="let u; let i = index">{{ i + 1 }}</td>
-            </ng-container>
-            <ng-container matColumnDef="name">
-              <th mat-header-cell *matHeaderCellDef>Player</th>
-              <td mat-cell *matCellDef="let u">{{ u.displayName || u.username }}</td>
-            </ng-container>
-            <ng-container matColumnDef="points">
-              <th mat-header-cell *matHeaderCellDef>Total Pts</th>
-              <td mat-cell *matCellDef="let u" class="pts">{{ u.totalPoints }}</td>
-            </ng-container>
-            <tr mat-header-row *matHeaderRowDef="overallCols"></tr>
-            <tr mat-row *matRowDef="let row; columns: overallCols;"></tr>
-          </table>
-        </mat-card>
-      </mat-tab>
-
-      <!-- Round -->
-      <mat-tab label="Round">
-        <div class="round-select">
-          <mat-form-field appearance="outline">
-            <mat-label>Select Match</mat-label>
-            <mat-select [(ngModel)]="selectedMatchId" (ngModelChange)="loadRound($event)">
-              @for (m of matches(); track m.id) {
-                <mat-option [value]="m.id">
-                  {{ m.teamA?.name ?? m.teamALabel ?? 'TBD' }} vs {{ m.teamB?.name ?? m.teamBLabel ?? 'TBD' }} · {{ m.stage }}
-                </mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
-        </div>
-        <mat-card class="table-card">
-          <table mat-table [dataSource]="roundEntries()">
-            <ng-container matColumnDef="rank">
-              <th mat-header-cell *matHeaderCellDef>#</th>
-              <td mat-cell *matCellDef="let e; let i = index">{{ i + 1 }}</td>
-            </ng-container>
-            <ng-container matColumnDef="name">
-              <th mat-header-cell *matHeaderCellDef>Player</th>
-              <td mat-cell *matCellDef="let e">{{ e.displayName || e.username }}</td>
-            </ng-container>
-            <ng-container matColumnDef="points">
-              <th mat-header-cell *matHeaderCellDef>Round Pts</th>
-              <td mat-cell *matCellDef="let e" class="pts">{{ e.roundPoints }}</td>
-            </ng-container>
-            <tr mat-header-row *matHeaderRowDef="roundCols"></tr>
-            <tr mat-row *matRowDef="let row; columns: roundCols;"></tr>
-          </table>
-          @if (!selectedMatchId) {
-            <p class="hint">Select a match to see round rankings.</p>
-          }
-        </mat-card>
-      </mat-tab>
-    </mat-tab-group>
+    <div class="lb-wrap">
+      <div class="lb-header">
+        <span class="lb-title">🏆 Leaderboard</span>
+      </div>
+      <div class="lb-table-wrap">
+        <table class="lb-table">
+          <thead>
+            <tr>
+              <th class="col-rank">#</th>
+              <th class="col-name">Player</th>
+              <th class="col-pts">Total Pts</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (u of overall(); track u.id; let i = $index) {
+              <tr [class.lb-top3]="i < 3">
+                <td class="col-rank">
+                  @if (i === 0) { <span class="medal gold">🥇</span> }
+                  @else if (i === 1) { <span class="medal silver">🥈</span> }
+                  @else if (i === 2) { <span class="medal bronze">🥉</span> }
+                  @else { <span class="rank-num">{{ i + 1 }}</span> }
+                </td>
+                <td class="col-name">{{ u.displayName || u.username }}</td>
+                <td class="col-pts">{{ u.totalPoints }}</td>
+              </tr>
+            }
+            @if (overall().length === 0) {
+              <tr><td colspan="3" class="empty">No entries yet.</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
   `,
   styles: [`
-    .page-title { color: #1a237e; font-size: 20px; font-weight: 700; margin: 0 0 20px; }
-    .table-card { margin-top: 16px; }
-    table { width: 100%; }
-    .pts { font-weight: 700; color: #1a237e; }
-    .round-select { margin-top: 16px; }
-    mat-form-field { width: 100%; }
-    .hint { text-align: center; color: #888; padding: 16px; font-size: 13px; }
+    .lb-wrap { max-width: 600px; margin: 32px auto; padding: 0 16px; }
+
+    .lb-header {
+      display: flex; align-items: center; margin-bottom: 16px;
+    }
+    .lb-title { font-size: 22px; font-weight: 800; color: #1a237e; }
+
+    .lb-table-wrap { border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,.1); }
+
+    .lb-table { width: 100%; border-collapse: collapse; background: #fff; }
+
+    thead tr { background: #1a237e; }
+    thead th { color: #fff; font-size: 12px; font-weight: 700; letter-spacing: .5px;
+               padding: 12px 16px; text-align: left; }
+
+    tbody tr { border-bottom: 1px solid #f0f0f0; transition: background .15s; }
+    tbody tr:hover { background: #f5f7ff; }
+    tbody tr:last-child { border-bottom: none; }
+
+    .lb-top3 { background: #fafbff; }
+
+    td { padding: 12px 16px; font-size: 14px; color: #1a237e; }
+
+    .col-rank { width: 56px; text-align: center; }
+    .col-name { font-weight: 600; }
+    .col-pts  { font-weight: 800; font-size: 15px; color: #1565c0; text-align: right; }
+
+    .medal { font-size: 20px; }
+    .rank-num { font-size: 14px; font-weight: 700; color: #888; }
+
+    .empty { text-align: center; color: #aaa; padding: 32px; font-size: 14px; }
   `]
 })
 export class LeaderboardComponent implements OnInit {
   private api = inject(ApiService);
-
   overall = signal<AppUser[]>([]);
-  matches = signal<Match[]>([]);
-  roundEntries = signal<RoundEntry[]>([]);
-  selectedMatchId: number | null = null;
-
-  overallCols = ['rank', 'name', 'points'];
-  roundCols = ['rank', 'name', 'points'];
 
   ngOnInit() {
     this.api.getOverallLeaderboard().subscribe(u => this.overall.set(u));
-    this.api.getMatches().subscribe(m => this.matches.set(m));
-  }
-
-  loadRound(matchId: number) {
-    if (!matchId) return;
-    this.api.getRoundLeaderboard(matchId).subscribe(e => this.roundEntries.set(e));
   }
 }
