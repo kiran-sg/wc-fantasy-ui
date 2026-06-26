@@ -389,6 +389,8 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
                       </span>
                     </div>
                     <span class="sq-u-pts">{{ u.totalPoints }} pts</span>
+                    <button class="sq-u-del-btn" title="Delete user"
+                      (click)="$event.stopPropagation(); deleteUser(u)">🗑</button>
                   </div>
                 }
                 @if (filteredUsers().length === 0 && allUsers().length > 0) {
