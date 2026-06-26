@@ -116,7 +116,7 @@ const BENCH_ROW: SlotRef[] = [
   </div>
 
   <!-- ═══════════════════ BODY ═══════════════════ -->
-  <div class="body-row">
+  <div class="body-row" [class.mobile-show-pool]="mobileView() === 'pool'">
 
     <!-- ── LEFT: PITCH ── -->
     <div class="pitch-col" (click)="$event.stopPropagation()">
@@ -386,6 +386,11 @@ const BENCH_ROW: SlotRef[] = [
           </div>
         }
       </div>
+
+      <!-- Mobile-only: back to pitch button -->
+      <div class="view-team-bar">
+        <button class="view-team-btn" (click)="viewTeam()">⬅ View Team</button>
+      </div>
     </div>
 
   </div>
@@ -395,7 +400,7 @@ const BENCH_ROW: SlotRef[] = [
     :host { display: block; }
 
     .page-wrap {
-      position: fixed; top: 64px; left: 0; right: 0; bottom: 0;
+      position: fixed; top: 56px; left: 0; right: 0; bottom: 0;
       background: #1565c0; font-family: 'Roboto', sans-serif;
       display: flex; flex-direction: column; overflow: hidden;
     }
@@ -688,12 +693,43 @@ const BENCH_ROW: SlotRef[] = [
     .pr-sub-btn { border-color: #f59e0b; color: #f59e0b; font-size: 14px; }
     .pr-sub-btn:hover { border-color: #fcd34d; color: #fcd34d; background: rgba(245,158,11,0.12); }
 
+    /* ── View Team bar (pool footer, mobile only) ── */
+    .view-team-bar { display: none; }
+
     /* ── RESPONSIVE ── */
     @media (max-width: 768px) {
       .page-wrap { top: 56px; }
-      .body-row { flex-direction: column; }
-      .pool-col { width: 100%; border-left: none; border-top: 2px solid #1f2937; flex: 0 0 320px; }
-      .pitch-col { flex: 1; min-height: 0; }
+
+      /* Default mobile: pitch fills full screen, pool hidden */
+      .body-row { flex-direction: column; overflow-y: auto; overflow-x: hidden; }
+      .pitch-col { flex: none; padding: 4px 8px 0; overflow: visible; }
+      .pool-col  { display: none; border-left: none; border-top: none; }
+
+      /* When pool view active: hide pitch, show pool full-screen */
+      .body-row.mobile-show-pool .pitch-col { display: none; }
+      .body-row.mobile-show-pool .pool-col  {
+        display: flex; width: 100%; flex: 1; min-height: 0;
+        border-top: 2px solid #1f2937;
+      }
+
+      /* View Team button */
+      .view-team-bar {
+        display: flex; flex-shrink: 0;
+        padding: 8px 12px; background: #0d0d0d; border-top: 1px solid #1f2937;
+      }
+      .view-team-btn {
+        width: 100%; padding: 12px;
+        background: #1d4ed8; color: #fff; border: none; border-radius: 8px;
+        font-size: 14px; font-weight: 800; cursor: pointer;
+      }
+
+      /* Compact header */
+      .hb-brand { display: none; }
+      .hb-deadline { margin-left: 0; }
+      .hb-pill { min-width: 54px; padding: 5px 8px; }
+      .hb-pill-val { font-size: 14px; }
+      .cap-tags { display: none; }
+      .pitch-toolbar { gap: 4px; }
       .key-items { gap: 6px; }
     }
   `]
@@ -728,6 +764,7 @@ export class MyTeamComponent implements OnInit {
   pitchDisplay   = signal<'price' | 'pts'>('price');
   message        = signal('');
   msgOk          = signal(true);
+  mobileView     = signal<'pitch' | 'pool'>('pitch');
 
   pitchRows = computed(() => buildRows(this.formation()));
 
@@ -961,7 +998,21 @@ export class MyTeamComponent implements OnInit {
     if (cur?.type === type && cur?.i === i) { this.activeSlot.set(null); return; }
     const id = type === 'xi' ? this.starterSlots()[i] : this.benchSlots()[i];
     this.activeSlot.set({ type, i, pos });
-    if (id === null) this.poolPos.set(pos);
+    if (id === null) {
+      this.poolPos.set(pos);
+      // On mobile: empty slot tap → show pool panel
+      if (window.innerWidth <= 768) this.mobileView.set('pool');
+    }
+  }
+
+  openPool(pos: string) {
+    this.poolPos.set(pos);
+    this.mobileView.set('pool');
+  }
+
+  viewTeam() {
+    this.mobileView.set('pitch');
+    this.activeSlot.set(null);
   }
 
   private doSwap(a: SlotRef, b: SlotRef) {
@@ -1035,6 +1086,8 @@ export class MyTeamComponent implements OnInit {
     }
     if (!this.captainId()) this.captainId.set(player.id);
     else if (!this.vcId() && this.vcId() !== player.id) this.vcId.set(player.id);
+    // On mobile return to pitch after picking a player
+    if (window.innerWidth <= 768) this.mobileView.set('pitch');
   }
 
   private autoPlace(player: Player) {

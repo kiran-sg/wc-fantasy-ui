@@ -37,11 +37,13 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
             }
             <span class="team-name">{{ match.teamA?.name ?? match.teamALabel ?? 'TBD' }}</span>
           </div>
-          @if (match.status === 'COMPLETED' || match.status === 'LIVE') {
-            <span class="score">{{ match.scoreA }} - {{ match.scoreB }}</span>
-          } @else {
-            <span class="vs">VS</span>
-          }
+          <div class="vs-col">
+            @if (match.status === 'COMPLETED' || match.status === 'LIVE') {
+              <span class="score">{{ match.scoreA }} – {{ match.scoreB }}</span>
+            } @else {
+              <span class="vs">VS</span>
+            }
+          </div>
           <div class="team">
             @if (match.teamB?.flagUrl) {
               <img class="team-flag" [src]="match.teamB!.flagUrl" [alt]="match.teamB!.name">
@@ -73,25 +75,26 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
     }
   `,
   styles: [`
-    .page-title { color: #1a237e; font-size: 20px; font-weight: 700; margin: 0 0 20px; }
     .loading { text-align: center; padding: 32px; color: #666; }
-    .match-card { margin-bottom: 12px; padding: 16px; border-radius: 12px !important; }
+    .match-card { margin-bottom: 10px; padding: 14px; border-radius: 12px !important; }
     .match-card.locked { opacity: 0.85; }
     .match-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
     .match-stage { font-size: 11px; color: #666; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-    .status-badge { font-size: 11px; padding: 2px 8px; border-radius: 12px; font-weight: 600; }
+    .status-badge { font-size: 11px; padding: 2px 8px; border-radius: 12px; font-weight: 600; white-space: nowrap; }
     .status-badge.upcoming { background: #c8e6c9; color: #2e7d32; }
     .status-badge.live { background: #ffcdd2; color: #c62828; animation: pulse 1.5s infinite; }
     .status-badge.completed { background: #e3f2fd; color: #1565c0; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
-    .teams { display: flex; align-items: center; justify-content: center; gap: 16px; margin: 16px 0; }
-    .team { display: flex; align-items: center; gap: 8px; }
-    .team-flag { width: 28px; height: 20px; object-fit: cover; border-radius: 3px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
-    .team-name { font-size: 16px; font-weight: 600; color: #333; }
-    .vs { color: #999; font-size: 12px; font-weight: 700; }
-    .score { font-size: 24px; font-weight: 800; color: #1a237e; }
-    .match-info { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #666; }
-    .actions { margin-top: 12px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+    .teams { display: flex; align-items: center; justify-content: space-between; margin: 12px 0; gap: 8px; }
+    .team { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; min-width: 0; }
+    .team-flag { width: 36px; height: 24px; object-fit: cover; border-radius: 3px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+    .team-name { font-size: 13px; font-weight: 700; color: #333; text-align: center; word-break: break-word; }
+    .vs-col { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
+    .vs { color: #999; font-size: 11px; font-weight: 700; }
+    .score { font-size: 22px; font-weight: 800; color: #1a237e; white-space: nowrap; }
+    .match-info { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11px; color: #666; margin-top: 2px; }
+    .actions { margin-top: 10px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+    .actions a, .actions button { font-size: 13px !important; min-height: 36px; }
   `]
 })
 export class MatchListComponent implements OnInit {

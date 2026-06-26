@@ -13,10 +13,31 @@ html, body {
   margin: 0;
   font-family: Roboto, "Helvetica Neue", sans-serif;
   background: #f5f5f5;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
 }
 
-* {
-  box-sizing: border-box;
+* { box-sizing: border-box; }
+
+/* Prevent text overflow everywhere */
+img { max-width: 100%; }
+
+/* Material tab bar — horizontally scrollable on mobile */
+.mat-mdc-tab-header {
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
+
+.mat-mdc-tab-label-container {
+  flex-shrink: 0 !important;
+}
+
+/* Make Material tables scroll on small screens */
+.table-wrap, .stats-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .mat-mdc-card {
@@ -24,10 +45,20 @@ html, body {
   border-radius: 12px !important;
 }
 
-.full-width {
-  width: 100%;
+.full-width  { width: 100%; }
+.text-center { text-align: center; }
+
+/* Reusable page title */
+.page-title {
+  color: #1a237e;
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 16px;
 }
 
-.text-center {
-  text-align: center;
+@media (max-width: 600px) {
+  .page-title { font-size: 16px; }
+
+  /* Tighten Material card padding */
+  .mat-mdc-card-content { padding: 12px !important; }
 }

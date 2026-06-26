@@ -787,6 +787,26 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
     .pts-p-total.cap-pts { color: #f9a825; }
     .x2-tag { font-size: 9px; font-weight: 800; background: #f9a825; color: #fff; padding: 1px 4px; border-radius: 3px; }
 
+    /* ── Mobile responsive ── */
+    @media (max-width: 768px) {
+      .sq-layout { flex-direction: column; gap: 10px; }
+      .sq-user-panel { position: static; width: 100%; }
+      .sq-user-list { max-height: 220px; }
+      .sq-detail-panel { width: 100%; }
+      .match-card { padding: 10px 12px; }
+      .teams-row { gap: 8px; }
+      .team { font-size: 13px; }
+      .actions-row { flex-direction: column; align-items: stretch; }
+      .actions-row button { width: 100%; justify-content: center; }
+      .stats-top-row { flex-direction: column; align-items: stretch; }
+      .stats-filters { flex-wrap: wrap; }
+      .stats-search-wrap .search-input { width: 100px; }
+      .sync-btns { flex-direction: column; }
+      .sync-btn { width: 100%; justify-content: center; }
+      .rc-header, .rc-row { grid-template-columns: 70px 1fr 1fr 1fr; font-size: 11px; }
+      .rc-col-wide, .rc-tz { display: none; }
+    }
+
     /* ── Round Config tab ── */
     .rc-wrap { padding-bottom: 32px; }
     .rc-loading { padding: 32px; text-align: center; color: #999; font-size: 13px; }

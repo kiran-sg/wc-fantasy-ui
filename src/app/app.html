@@ -1,20 +1,92 @@
-<mat-toolbar class="toolbar" [class.hidden]="isLoginPage()">
-  <a routerLink="/" class="brand">⚽ FUEL UP Fantasy League</a>
-  <span class="spacer"></span>
-  @if (auth.isLoggedIn()) {
-    @if (auth.isAdmin()) {
-      <a mat-button routerLink="/admin" class="nav-link admin-link">🛠 Admin</a>
-      <a mat-button routerLink="/leaderboard" class="nav-link">Leaderboard</a>
-    } @else {
-      <a mat-button routerLink="/my-team" class="nav-link">My Team</a>
-      <a mat-button routerLink="/leaderboard" class="nav-link">Leaderboard</a>
-    }
-    <span class="username">{{ auth.username() }}</span>
-    <button mat-button class="nav-link" (click)="logout()">Logout</button>
-  } @else {
-    <a mat-button routerLink="/login" class="nav-link">Login</a>
+@if (!isLoginPage()) {
+  <nav class="navbar">
+    <a routerLink="/" class="brand">
+      <span class="brand-text">⚽ FUEL UP Fantasy</span>
+    </a>
+
+    <!-- Desktop nav -->
+    <div class="desktop-nav">
+      @if (auth.isLoggedIn()) {
+        @if (auth.isAdmin()) {
+          <a routerLink="/admin" routerLinkActive="active" class="nav-item">
+            <mat-icon>shield</mat-icon>
+            <span class="nav-label">Admin</span>
+          </a>
+          <a routerLink="/leaderboard" routerLinkActive="active" class="nav-item">
+            <mat-icon>emoji_events</mat-icon>
+            <span class="nav-label">Leaderboard</span>
+          </a>
+        } @else {
+          <a routerLink="/matches" routerLinkActive="active" class="nav-item">
+            <mat-icon>sports_soccer</mat-icon>
+            <span class="nav-label">Matches</span>
+          </a>
+          <a routerLink="/my-team" routerLinkActive="active" class="nav-item">
+            <mat-icon>group</mat-icon>
+            <span class="nav-label">My Team</span>
+          </a>
+          <a routerLink="/leaderboard" routerLinkActive="active" class="nav-item">
+            <mat-icon>emoji_events</mat-icon>
+            <span class="nav-label">Leaderboard</span>
+          </a>
+        }
+        <span class="username">{{ auth.username() }}</span>
+        <button class="nav-item logout-btn" (click)="logout()">
+          <mat-icon>logout</mat-icon>
+        </button>
+      }
+    </div>
+
+    <!-- Mobile right side -->
+    <div class="mobile-controls">
+      @if (auth.isLoggedIn()) {
+        <button class="icon-btn" (click)="toggleDrawer()">
+          <mat-icon>menu</mat-icon>
+        </button>
+      }
+    </div>
+  </nav>
+
+  <!-- Mobile drawer overlay -->
+  @if (drawerOpen) {
+    <div class="drawer-overlay" (click)="closeDrawer()"
+         (touchstart)="onTouchStart($event)" (touchend)="onTouchEnd($event)"></div>
   }
-</mat-toolbar>
+
+  <!-- Mobile drawer -->
+  <div class="drawer" [class.open]="drawerOpen"
+       (touchstart)="onTouchStart($event)" (touchend)="onTouchEnd($event)">
+    <div class="drawer-header">
+      <mat-icon>account_circle</mat-icon>
+      <span>{{ auth.username() }}</span>
+    </div>
+    <nav class="drawer-nav">
+      @if (auth.isAdmin()) {
+        <a routerLink="/admin" routerLinkActive="active" class="drawer-item" (click)="closeDrawer()">
+          <mat-icon>shield</mat-icon>
+          <span>Admin</span>
+        </a>
+      } @else {
+        <a routerLink="/matches" routerLinkActive="active" class="drawer-item" (click)="closeDrawer()">
+          <mat-icon>sports_soccer</mat-icon>
+          <span>Matches</span>
+        </a>
+        <a routerLink="/my-team" routerLinkActive="active" class="drawer-item" (click)="closeDrawer()">
+          <mat-icon>group</mat-icon>
+          <span>My Team</span>
+        </a>
+      }
+      <a routerLink="/leaderboard" routerLinkActive="active" class="drawer-item" (click)="closeDrawer()">
+        <mat-icon>emoji_events</mat-icon>
+        <span>Leaderboard</span>
+      </a>
+      <button class="drawer-item drawer-logout" (click)="logout()">
+        <mat-icon>logout</mat-icon>
+        <span>Logout</span>
+      </button>
+    </nav>
+  </div>
+}
 
 @if (loading.isLoading()) {
   <div class="global-overlay">
