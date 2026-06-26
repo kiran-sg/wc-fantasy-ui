@@ -26,9 +26,11 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
       <mat-card class="match-card" [class.locked]="match.status !== 'UPCOMING'" appearance="outlined">
         <div class="match-header">
           <span class="match-stage">{{ match.stage }}</span>
-          <span class="status-badge" [class]="match.status.toLowerCase()">
-            {{ statusLabel(match) }}
-          </span>
+          @if (match.status !== 'UPCOMING') {
+            <span class="status-badge" [class]="match.status.toLowerCase()">
+              {{ statusLabel(match) }}
+            </span>
+          }
         </div>
         <div class="teams">
           <div class="team">
@@ -101,7 +103,7 @@ export class MatchListComponent implements OnInit {
 
   ngOnInit() {
     this.api.getMatches().subscribe({
-      next: (m) => { this.matches.set(m); this.loading.set(false); },
+      next: (m) => { this.matches.set(m.filter(x => x.stage !== 'GROUP')); this.loading.set(false); },
       error: () => this.loading.set(false)
     });
   }
@@ -109,7 +111,7 @@ export class MatchListComponent implements OnInit {
   statusLabel(match: Match): string {
     if (match.status === 'LIVE') return '🔴 LIVE';
     if (match.status === 'COMPLETED') return '✅ Full Time';
-    return '🟢 Open';
+    return '';
   }
 
   formatDate(dt: string): string {

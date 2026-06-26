@@ -111,11 +111,15 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
             </div>
 
             <div class="actions-row">
-              <button mat-flat-button color="primary" [disabled]="updating() === match.id" (click)="fetchFromEspn(match.id)">
+              <button class="espn-btn"
+                [disabled]="updating() === match.id || !espnFetchReady(match)"
+                (click)="fetchFromEspn(match.id)">
                 @if (updating() === match.id) {
-                  <mat-spinner diameter="16" style="display:inline-block;margin-right:6px"></mat-spinner>
+                  <mat-spinner diameter="16" class="espn-spinner"></mat-spinner>
+                } @else {
+                  <mat-icon class="espn-icon">sports_soccer</mat-icon>
                 }
-                🔄 Fetch from ESPN
+                <span>{{ updating() === match.id ? 'Fetching…' : 'Fetch from ESPN' }}</span>
               </button>
               @if (match.status === 'COMPLETED') {
                 <button mat-stroked-button (click)="toggleStats(match.id)">
@@ -389,8 +393,6 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
                       </span>
                     </div>
                     <span class="sq-u-pts">{{ u.totalPoints }} pts</span>
-                    <button class="sq-u-del-btn" title="Delete user"
-                      (click)="$event.stopPropagation(); deleteUser(u)">🗑</button>
                   </div>
                 }
                 @if (filteredUsers().length === 0 && allUsers().length > 0) {
@@ -712,7 +714,12 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
     .team { font-size:15px; font-weight:600; }
     .vs { color:#999; font-size:12px; }
     .score { font-size:22px; font-weight:800; color:#1a237e; }
-    .actions-row { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-top:10px; }
+    .actions-row { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; align-items:center; margin-top:10px; }
+    .espn-btn { display:inline-flex; align-items:center; gap:7px; padding:0 20px; height:40px; border:none; border-radius:20px; background:linear-gradient(135deg,#1a237e,#3949ab); color:#fff; font-size:13px; font-weight:700; letter-spacing:0.4px; cursor:pointer; box-shadow:0 3px 8px rgba(26,35,126,0.35); transition:box-shadow .15s, transform .1s; }
+    .espn-btn:hover:not(:disabled) { box-shadow:0 5px 14px rgba(26,35,126,0.45); transform:translateY(-1px); }
+    .espn-btn:disabled { background:linear-gradient(135deg,#bdbdbd,#9e9e9e); box-shadow:none; cursor:not-allowed; transform:none; }
+    .espn-icon { font-size:18px; width:18px; height:18px; }
+    .espn-spinner { display:inline-block; }
     .result-msg { text-align:center; color:#2e7d32; margin-top:8px; font-size:13px; font-weight:500; }
     .result-msg.error { color:#c62828; }
     .stats-section { margin-top:14px; }
@@ -1041,7 +1048,9 @@ export class AdminScoresComponent implements OnInit {
   locSaving          = signal(false);
 
   finishedMatches = computed(() =>
-    [...this.matches()].sort((a, b) => new Date(a.matchTime).getTime() - new Date(b.matchTime).getTime())
+    [...this.matches()]
+      .filter(m => m.stage !== 'GROUP')
+      .sort((a, b) => new Date(a.matchTime).getTime() - new Date(b.matchTime).getTime())
   );
 
   filteredMatches = computed(() => {
@@ -1188,6 +1197,13 @@ export class AdminScoresComponent implements OnInit {
       error: () => { this.loading.set(false); this.globalLoading.set(false); }
     });
   }
+
+  espnFetchReady(match: Match): boolean {
+    if (!match.matchTime) return true;
+    const kickoff = new Date(match.matchTime).getTime();
+    return Date.now() >= kickoff + 90 * 60 * 1000;
+  }
+
 
   fetchFromEspn(matchId: number) {
     this.updating.set(matchId);
