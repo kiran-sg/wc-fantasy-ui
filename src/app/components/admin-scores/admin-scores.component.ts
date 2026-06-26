@@ -299,12 +299,44 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
                 <button class="loc-badge pune" [class.active]="locationFilter() === 'Pune'" (click)="locationFilter.set('Pune')">Pune</button>
               </div>
 
-              <!-- Add user button -->
+              <!-- Add / bulk upload buttons -->
               <div class="sq-add-user-row">
-                <button mat-stroked-button class="add-user-btn" (click)="showAddUser.set(true)">
+                <button mat-stroked-button class="add-user-btn" (click)="showAddUser.set(true); showBulkUpload.set(false)">
                   <mat-icon>person_add</mat-icon> Add User
                 </button>
+                <button mat-stroked-button class="add-user-btn bulk-btn" (click)="showBulkUpload.set(true); showAddUser.set(false)">
+                  <mat-icon>upload_file</mat-icon> Bulk Upload
+                </button>
               </div>
+
+              <!-- Bulk upload form -->
+              @if (showBulkUpload()) {
+                <div class="add-user-form">
+                  <div class="au-upload-hint">Upload the FIFA Fantasy League Users Excel (.xlsx). Columns mapped: <b>Hash ID → username</b>, <b>Full Name → display name</b>, <b>Location → location</b>.</div>
+                  <input #xlsxInput type="file" accept=".xlsx" class="au-file-input" (change)="onXlsxSelected($event)">
+                  @if (uploadResult()) {
+                    <div class="au-upload-result" [class.au-error]="uploadResult()!.error">
+                      @if (uploadResult()!.error) {
+                        ❌ {{ uploadResult()!.error }}
+                      } @else {
+                        ✅ Created: <b>{{ uploadResult()!.created }}</b> &nbsp;·&nbsp; Skipped: <b>{{ uploadResult()!.skipped }}</b>
+                        @if (uploadResult()!.errors?.length) {
+                          <ul class="au-upload-errors">
+                            @for (e of uploadResult()!.errors; track $index) { <li>{{ e }}</li> }
+                          </ul>
+                        }
+                      }
+                    </div>
+                  }
+                  <div class="au-actions">
+                    <button mat-flat-button class="au-save-btn" [disabled]="!uploadFile || uploadingBulk()" (click)="uploadUsers()">
+                      @if (uploadingBulk()) { <mat-spinner diameter="14" style="display:inline-block;margin-right:4px"></mat-spinner> }
+                      Upload
+                    </button>
+                    <button mat-button class="au-cancel-btn" (click)="cancelBulkUpload()">Cancel</button>
+                  </div>
+                </div>
+              }
 
               <!-- Add user form -->
               @if (showAddUser()) {
@@ -685,9 +717,15 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
     .loc-badge.pune.active { background: #c62828; border-color: #c62828; }
 
     /* Add user */
-    .sq-add-user-row { padding: 8px 12px; border-bottom: 1px solid #f0f0f0; }
-    .add-user-btn { width: 100%; font-size: 12px !important; color: #1a237e !important; border-color: #c5cae9 !important; }
+    .sq-add-user-row { padding: 8px 12px; border-bottom: 1px solid #f0f0f0; display: flex; gap: 6px; }
+    .add-user-btn { flex: 1; font-size: 12px !important; color: #1a237e !important; border-color: #c5cae9 !important; }
+    .bulk-btn { color: #6a1b9a !important; border-color: #ce93d8 !important; }
     .add-user-form { padding: 10px 12px; border-bottom: 1px solid #f0f0f0; background: #fafafa; display: flex; flex-direction: column; gap: 6px; }
+    .au-upload-hint { font-size: 11px; color: #555; line-height: 1.5; }
+    .au-file-input { font-size: 12px; }
+    .au-upload-result { font-size: 12px; color: #2e7d32; background: #e8f5e9; border: 1px solid #a5d6a7; border-radius: 6px; padding: 8px 10px; }
+    .au-upload-result.au-error { color: #c62828; background: #ffebee; border-color: #ef9a9a; }
+    .au-upload-errors { margin: 4px 0 0 16px; padding: 0; font-size: 11px; color: #c62828; }
     .au-input { border: 1px solid #e0e0e0; border-radius: 6px; padding: 7px 10px; font-size: 12px; outline: none; background: #fff; width: 100%; box-sizing: border-box; }
     .au-input:focus { border-color: #1a237e; }
     .au-select { color: #555; }
@@ -887,6 +925,11 @@ export class AdminScoresComponent implements OnInit {
   newIsAdmin = 'false';
   addingUser = signal(false);
   addUserError = signal('');
+
+  showBulkUpload  = signal(false);
+  uploadingBulk   = signal(false);
+  uploadFile: File | null = null;
+  uploadResult    = signal<{ created?: number; skipped?: number; errors?: string[]; error?: string } | null>(null);
 
   finishedMatches = computed(() =>
     [...this.matches()].sort((a, b) => new Date(a.matchTime).getTime() - new Date(b.matchTime).getTime())
@@ -1138,6 +1181,35 @@ export class AdminScoresComponent implements OnInit {
     this.newLocation = '';
     this.newIsAdmin = 'false';
     this.addUserError.set('');
+  }
+
+  onXlsxSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    this.uploadFile = input.files?.[0] ?? null;
+    this.uploadResult.set(null);
+  }
+
+  uploadUsers() {
+    if (!this.uploadFile) return;
+    this.uploadingBulk.set(true);
+    this.uploadResult.set(null);
+    this.api.adminBulkUploadUsers(this.uploadFile).subscribe({
+      next: res => {
+        this.uploadingBulk.set(false);
+        this.uploadResult.set(res);
+        this.loadUsers();
+      },
+      error: err => {
+        this.uploadingBulk.set(false);
+        this.uploadResult.set({ error: err?.error?.error || 'Upload failed' });
+      }
+    });
+  }
+
+  cancelBulkUpload() {
+    this.showBulkUpload.set(false);
+    this.uploadFile = null;
+    this.uploadResult.set(null);
   }
 
   selectUser(u: AppUser) {

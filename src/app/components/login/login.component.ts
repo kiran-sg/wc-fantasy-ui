@@ -186,9 +186,9 @@ export class LoginComponent {
         this.loading = false;
         this.router.navigate([this.auth.isAdmin() ? '/admin' : '/my-team']);
       },
-      error: () => {
+      error: (err) => {
         this.loading = false;
-        this.error = 'Login failed. Please try again.';
+        this.error = err?.error?.error || 'Login failed. Please try again.';
       }
     });
   }

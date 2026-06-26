@@ -147,4 +147,10 @@ export class ApiService {
   adminCreateUser(username: string, displayName: string, location: string, isAdmin: boolean): Observable<any> {
     return this.http.post(`${this.base}/admin/users`, { username, displayName, location, isAdmin });
   }
+
+  adminBulkUploadUsers(file: File): Observable<any> {
+    const form = new FormData();
+    form.append('file', file);
+    return this.http.post(`${this.base}/admin/users/bulk-upload`, form);
+  }
 }
