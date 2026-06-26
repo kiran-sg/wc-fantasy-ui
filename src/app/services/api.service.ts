@@ -1,7 +1,8 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { Team, Player, Match, UserSquad, AppUser, RoundEntry, UserTeam, UserTeamMatchPoints, UserTransferRecord } from '../models/models';
+import { map } from 'rxjs/operators';
+import { Team, Player, Match, UserSquad, AppUser, RoundEntry, UserTeam, UserTeamMatchPoints, UserTransferRecord, RoundConfig } from '../models/models';
 import { environment } from '../../environments/environment';
 
 @Injectable({ providedIn: 'root' })
@@ -73,10 +74,11 @@ export class ApiService {
     benchIds: number[],
     captainId: number,
     viceCaptainId: number,
-    stage: string
+    stage: string,
+    formation: string
   ): Observable<UserTeam> {
     return this.http.post<UserTeam>(`${this.base}/team`, {
-      userId, starterIds, benchIds, captainId, viceCaptainId, stage
+      userId, starterIds, benchIds, captainId, viceCaptainId, stage, formation
     });
   }
 
@@ -90,6 +92,24 @@ export class ApiService {
 
   getAllTransferRecords(userId: number): Observable<UserTransferRecord[]> {
     return this.http.get<UserTransferRecord[]>(`${this.base}/team/transfers/all?userId=${userId}`);
+  }
+
+  getRoundConfigs(): Observable<RoundConfig[]> {
+    return this.http.get<RoundConfig[]>(`${this.base}/round-config`);
+  }
+
+  getActiveRoundConfig(): Observable<RoundConfig | null> {
+    return this.http.get<any>(`${this.base}/round-config/active`).pipe(
+      map((r: any) => r?.stage === 'NONE' ? null : r as RoundConfig)
+    );
+  }
+
+  updateRoundConfig(stage: string, config: Partial<RoundConfig>): Observable<RoundConfig> {
+    return this.http.put<RoundConfig>(`${this.base}/round-config/${stage}`, config);
+  }
+
+  syncRoundStarts(): Observable<RoundConfig[]> {
+    return this.http.post<RoundConfig[]>(`${this.base}/round-config/sync-starts`, {});
   }
 
   getAllPlayers(): Observable<Player[]> {

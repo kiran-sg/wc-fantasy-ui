@@ -2,37 +2,67 @@ import { Component, inject, OnInit, signal, computed, HostListener } from '@angu
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
-import { Player, UserTeam, Match, UserTransferRecord } from '../../models/models';
+import { Player, UserTeam, Match, UserTransferRecord, RoundConfig } from '../../models/models';
 
 const BUDGET = 105_000_000;
-const TOTAL_QUOTA = { GK: 2, DEF: 5, MID: 5, FWD: 3 };
 const TOTAL_PLAYERS = 15;
-const STAGE_LIMIT: Record<string, number> = { GROUP: 3, R32: 3, R16: 4, QF: 5, SF: 6, FINAL: 8 };
-const UNLIMITED = Infinity;
-const FREE_TRANSFERS: Record<string, number> = { GROUP: UNLIMITED, R32: UNLIMITED, R16: 4, QF: 4, SF: 5, FINAL: 6 };
 const POS_COLOR: Record<string, string> = { GK: '#f59e0b', DEF: '#10b981', MID: '#3b82f6', FWD: '#ef4444' };
+
+// Fallback defaults — used until round-config loads from API
+const DEFAULT_FREE_TRANSFERS: Record<string, number> = { GROUP: Infinity, R32: 4, R16: 4, QF: 4, SF: 5, FINAL: 6 };
+const DEFAULT_COUNTRY_LIMIT:  Record<string, number> = { GROUP: 3, R32: 3, R16: 4, QF: 5, SF: 6, FINAL: 8 };
 
 type SlotRef = { pos: string; type: 'xi' | 'bench'; i: number };
 
-const FIXED_ROWS: SlotRef[][] = [
-  [{ pos: 'GK', type: 'xi', i: 0 }, { pos: 'GK', type: 'bench', i: 0 }],
-  [
-    { pos: 'DEF', type: 'xi', i: 1 }, { pos: 'DEF', type: 'xi', i: 2 },
-    { pos: 'DEF', type: 'xi', i: 3 }, { pos: 'DEF', type: 'xi', i: 4 },
-    { pos: 'DEF', type: 'bench', i: 1 },
-  ],
-  [
-    { pos: 'MID', type: 'xi', i: 5 }, { pos: 'MID', type: 'xi', i: 6 },
-    { pos: 'MID', type: 'xi', i: 7 }, { pos: 'MID', type: 'xi', i: 8 },
-    { pos: 'MID', type: 'bench', i: 2 },
-  ],
-  [
-    { pos: 'FWD', type: 'xi', i: 9 }, { pos: 'FWD', type: 'xi', i: 10 },
-    { pos: 'FWD', type: 'bench', i: 3 },
-  ],
-];
+// formation string → [DEF, MID, FWD] counts (GK is always 1)
+const FORMATIONS: Record<string, [number, number, number]> = {
+  '4-4-2': [4, 4, 2],
+  '4-3-3': [4, 3, 3],
+  '4-5-1': [4, 5, 1],
+  '3-4-3': [3, 4, 3],
+  '3-5-2': [3, 5, 2],
+  '5-4-1': [5, 4, 1],
+  '5-3-2': [5, 3, 2],
+};
 
-const STARTER_COUNT = { GK: 1, DEF: 4, MID: 4, FWD: 2 };
+// Squad quota is formation-driven: each outfield position gets exactly
+// (formation count + 1 bench sub). GK is always 2.
+function quotaFor(formation: string): Record<string, number> {
+  const [def, mid, fwd] = FORMATIONS[formation] ?? FORMATIONS['4-4-2'];
+  return { GK: 2, DEF: def + 1, MID: mid + 1, FWD: fwd + 1 };
+}
+
+function buildRows(formation: string): SlotRef[][] {
+  const [def, mid, fwd] = FORMATIONS[formation] ?? FORMATIONS['4-4-2'];
+  const rows: SlotRef[][] = [[{ pos: 'GK', type: 'xi', i: 0 }]];
+  let idx = 1;
+  const defSlots: SlotRef[] = [];
+  for (let i = 0; i < def; i++) defSlots.push({ pos: 'DEF', type: 'xi', i: idx++ });
+  rows.push(defSlots);
+  const midSlots: SlotRef[] = [];
+  for (let i = 0; i < mid; i++) midSlots.push({ pos: 'MID', type: 'xi', i: idx++ });
+  rows.push(midSlots);
+  const fwdSlots: SlotRef[] = [];
+  for (let i = 0; i < fwd; i++) fwdSlots.push({ pos: 'FWD', type: 'xi', i: idx++ });
+  rows.push(fwdSlots);
+  return rows;
+}
+
+// slot index → position for any formation
+function slotPos(i: number, formation: string): string {
+  if (i === 0) return 'GK';
+  const [def, mid] = FORMATIONS[formation] ?? FORMATIONS['4-4-2'];
+  if (i <= def) return 'DEF';
+  if (i <= def + mid) return 'MID';
+  return 'FWD';
+}
+
+const BENCH_ROW: SlotRef[] = [
+  { pos: 'GK',  type: 'bench', i: 0 },
+  { pos: 'DEF', type: 'bench', i: 1 },
+  { pos: 'MID', type: 'bench', i: 2 },
+  { pos: 'FWD', type: 'bench', i: 3 },
+];
 
 @Component({
   selector: 'app-my-team',
@@ -51,8 +81,13 @@ const STARTER_COUNT = { GK: 1, DEF: 4, MID: 4, FWD: 2 };
       </div>
     </div>
     <div class="hb-deadline">
-      <div class="hb-dl-lbl">Transfers deadline</div>
-      <div class="hb-dl-val">{{ deadlineLabel() }}</div>
+      <div class="hb-dl-lbl">Transfer window</div>
+      @if (windowOpen()) {
+        <div class="hb-dl-val win-open">OPEN · closes {{ fmtHour(currentConfig()?.windowCloseHour ?? 19) }}</div>
+      } @else {
+        <div class="hb-dl-val win-closed">CLOSED · opens {{ fmtHour(currentConfig()?.windowOpenHour ?? 12) }}</div>
+      }
+      <div class="hb-dl-sub">Next match: {{ deadlineLabel() }}</div>
     </div>
     <div class="hb-pills">
       <div class="hb-pill">
@@ -60,9 +95,13 @@ const STARTER_COUNT = { GK: 1, DEF: 4, MID: 4, FWD: 2 };
         <div class="hb-pill-lbl">Budget</div>
       </div>
       <div class="hb-pill">
-        <div class="hb-pill-val">{{ pickedCount() }}/{{ TOTAL_PLAYERS }}</div>
-        <div class="hb-pill-lbl">Selected</div>
-      </div>
+          <div class="hb-pill-val" [class.over-budget]="xiCount() > 11">{{ xiCount() }}/11</div>
+          <div class="hb-pill-lbl">XI</div>
+        </div>
+        <div class="hb-pill">
+          <div class="hb-pill-val" [class.over-budget]="benchCount() > 4">{{ benchCount() }}/4</div>
+          <div class="hb-pill-lbl">Bench</div>
+        </div>
     </div>
     @if (existingTeam() && transferRecord()) {
       <div class="hb-transfers" [class.penalty]="(transferRecord()?.penaltyPoints ?? 0) > 0">
@@ -112,6 +151,10 @@ const STARTER_COUNT = { GK: 1, DEF: 4, MID: 4, FWD: 2 };
 
       <!-- Pitch canvas -->
       <div class="pitch">
+        <select class="pitch-display-select" [ngModel]="pitchDisplay()" (ngModelChange)="pitchDisplay.set($event)" (click)="$event.stopPropagation()">
+          <option value="price">Price</option>
+          <option value="pts">Points</option>
+        </select>
         <div class="pitch-markings">
           <div class="pm halfway"></div>
           <div class="pm center-circle"></div>
@@ -121,47 +164,38 @@ const STARTER_COUNT = { GK: 1, DEF: 4, MID: 4, FWD: 2 };
           <div class="pm goal-bot"></div>
         </div>
 
-        @for (row of FIXED_ROWS; track $index) {
+        @for (row of pitchRows(); track $index) {
           <div class="pitch-row">
             @for (slot of row; track slot.type + slot.i) {
-              @if (slot.type === 'bench') {
-                <div class="bench-sep"></div>
-              }
-
               <div class="p-slot"
                    [class.p-active]="isActiveSlot(slot)"
-                   [class.is-bench]="slot.type === 'bench'"
+                   [class.is-swap-target]="isSwapTarget(slot)"
                    (click)="$event.stopPropagation(); tapSlot(slot.type, slot.i, slot.pos)">
 
+                @if (isSwapTarget(slot)) {
+                  <div class="swap-overlay">⇅</div>
+                }
+
                 @if (getSlotPlayer(slot); as p) {
-                  <!-- Filled card -->
                   <div class="p-card">
-                    <!-- Top icon bar: minus left, C/VC right -->
                     <div class="p-card-icons">
                       <button class="icon-btn minus-btn" (click)="$event.stopPropagation(); removeSlot(slot)" title="Remove">
                         <span class="icon-circle minus-circle">−</span>
                       </button>
                       <div class="cap-badges">
-                        @if (captainId() === p.id) {
-                          <span class="cap-icon c-icon">C</span>
-                        }
-                        @if (vcId() === p.id) {
-                          <span class="cap-icon vc-icon">V</span>
-                        }
+                        @if (captainId() === p.id) { <span class="cap-icon c-icon">C</span> }
+                        @if (vcId() === p.id)      { <span class="cap-icon vc-icon">V</span> }
                       </div>
                     </div>
-                    <!-- Player silhouette -->
                     <div class="p-avatar filled-av" [style.--pc]="posColor(p.position)"></div>
-                    <!-- Name + price bar -->
                     <div class="p-name-bar">{{ shortName(p.name) }}</div>
                     <div class="p-price-bar" [style.background]="posColor(p.position)">
-                      {{ sortBy() === 'pts_desc' ? (p.totalPoints ?? 0) + ' pts' : fmtM(p.price) }}
+                      {{ pitchDisplay() === 'pts' ? (p.totalPoints ?? 0) + ' pts' : fmtM(p.price) }}
                     </div>
                   </div>
                 } @else {
-                  <!-- Empty card -->
                   <div class="p-card p-card-empty">
-                    <div class="p-avatar empty-av" [class.bench-av]="slot.type === 'bench'">
+                    <div class="p-avatar empty-av">
                       <span class="p-plus-icon">+</span>
                     </div>
                     <div class="p-name-bar dim-bar">{{ slot.pos }}</div>
@@ -171,6 +205,51 @@ const STARTER_COUNT = { GK: 1, DEF: 4, MID: 4, FWD: 2 };
             }
           </div>
         }
+      </div>
+
+      <!-- Bench strip -->
+      <div class="bench-strip">
+        <div class="bench-strip-label">BENCH</div>
+        <div class="bench-strip-slots">
+          @for (slot of BENCH_ROW; track slot.i) {
+            <div class="p-slot is-bench"
+                 [class.p-active]="isActiveSlot(slot)"
+                 [class.is-swap-target]="isSwapTarget(slot)"
+                 (click)="$event.stopPropagation(); tapSlot(slot.type, slot.i, slot.pos)">
+
+              @if (isSwapTarget(slot)) {
+                <div class="swap-overlay">⇅</div>
+              }
+
+              @if (getSlotPlayer(slot); as p) {
+                <div class="p-card p-card-bench">
+                  <div class="bench-badge">SUB</div>
+                  <div class="p-card-icons">
+                    <button class="icon-btn minus-btn" (click)="$event.stopPropagation(); removeSlot(slot)" title="Remove">
+                      <span class="icon-circle minus-circle">−</span>
+                    </button>
+                    <div class="cap-badges">
+                      @if (captainId() === p.id) { <span class="cap-icon c-icon">C</span> }
+                      @if (vcId() === p.id)      { <span class="cap-icon vc-icon">V</span> }
+                    </div>
+                  </div>
+                  <div class="p-avatar filled-av" [style.--pc]="posColor(p.position)"></div>
+                  <div class="p-name-bar">{{ shortName(p.name) }}</div>
+                  <div class="p-price-bar" [style.background]="posColor(p.position)">
+                    {{ pitchDisplay() === 'pts' ? (p.totalPoints ?? 0) + ' pts' : fmtM(p.price) }}
+                  </div>
+                </div>
+              } @else {
+                <div class="p-card p-card-empty p-card-bench">
+                  <div class="p-avatar empty-av bench-av">
+                    <span class="p-plus-icon">+</span>
+                  </div>
+                  <div class="p-name-bar dim-bar">{{ slot.pos }}</div>
+                </div>
+              }
+            </div>
+          }
+        </div>
       </div>
 
       <!-- Action menu (captain / vc assignment) -->
@@ -183,6 +262,13 @@ const STARTER_COUNT = { GK: 1, DEF: 4, MID: 4, FWD: 2 };
               <div class="am-meta">{{ p.team.name }} · {{ fmtM(p.price) }}</div>
             </div>
             <button class="am-close" (click)="activeSlot.set(null)">✕</button>
+          </div>
+          <div class="am-swap-hint">
+            @if (activeSlot()?.type === 'xi') {
+              <span class="am-hint-text">⇅ Tap a bench player below to substitute</span>
+            } @else {
+              <span class="am-hint-text">⇅ Tap a pitch player to substitute</span>
+            }
           </div>
           <div class="am-actions">
             <button class="am-btn am-remove" (click)="removeActive()">Remove</button>
@@ -202,14 +288,24 @@ const STARTER_COUNT = { GK: 1, DEF: 4, MID: 4, FWD: 2 };
           <span class="cap-tag c-tag">C: {{ captainName() ?? '—' }}</span>
           <span class="cap-tag v-tag">V: {{ vcName() ?? '—' }}</span>
         </div>
+        <select class="formation-select" [ngModel]="formation()" (ngModelChange)="changeFormation($event)">
+          @for (f of FORMATIONS; track f) {
+            <option [value]="f">{{ f }}</option>
+          }
+        </select>
         <button class="autopick-btn" [class.picking]="autoPicking()" (click)="autoPick()">⚡ AUTOPICK</button>
         <button class="clear-btn" (click)="clearAll()">✕ Clear</button>
       </div>
 
       <!-- Save button -->
       <div class="save-row" (click)="$event.stopPropagation()">
+        @if (!windowOpen()) {
+          <div class="window-closed-bar">
+            🔒 Transfer window closed · Opens {{ fmtHour(currentConfig()?.windowOpenHour ?? 12) }} IST
+          </div>
+        }
         <button class="save-btn" [disabled]="!canSave()" (click)="saveTeam()">
-          {{ existingTeam() ? 'Confirm Transfers' : 'Save My Team' }}
+          {{ saveButtonLabel() }}
         </button>
       </div>
 
@@ -280,7 +376,9 @@ const STARTER_COUNT = { GK: 1, DEF: 4, MID: 4, FWD: 2 };
             </div>
             <div class="pr-price" [class.pr-col-active]="sortBy() === 'price_desc'">{{ fmtM(p.price) }}</div>
             <div class="pr-pts"   [class.pr-col-active]="sortBy() === 'pts_desc'">{{ p.totalPoints ?? 0 }}</div>
-            @if (inSquad(p.id)) {
+            @if (canSubIntoActiveSlot(p)) {
+              <button class="pr-circ-btn pr-sub-btn" (click)="subPlayerIntoActiveSlot(p)" title="Substitute">⇅</button>
+            } @else if (inSquad(p.id)) {
               <button class="pr-circ-btn pr-rem-btn" (click)="removeById(p.id)" title="Remove"><span>−</span></button>
             } @else {
               <button class="pr-circ-btn pr-add-btn" [disabled]="!canAdd(p)" (click)="addPlayerFromPool(p)" title="Add"><span>+</span></button>
@@ -314,7 +412,10 @@ const STARTER_COUNT = { GK: 1, DEF: 4, MID: 4, FWD: 2 };
     .hb-sub   { color: #60a5fa; font-size: 9px; font-weight: 700; letter-spacing: 2px; }
     .hb-deadline { margin-left: auto; text-align: center; }
     .hb-dl-lbl { color: #6b7280; font-size: 9px; text-transform: uppercase; }
-    .hb-dl-val { color: #fbbf24; font-size: 13px; font-weight: 800; }
+    .hb-dl-val { font-size: 12px; font-weight: 800; }
+    .hb-dl-sub { color: #6b7280; font-size: 9px; margin-top: 1px; }
+    .win-open   { color: #4ade80; }
+    .win-closed { color: #f87171; }
     .hb-pills { display: flex; gap: 6px; }
     .hb-pill { background: #1a1a1a; border: 1px solid #333; border-radius: 10px; padding: 6px 14px; text-align: center; min-width: 70px; }
     .hb-pill-val { color: #fff; font-size: 17px; font-weight: 900; line-height: 1; }
@@ -366,14 +467,20 @@ const STARTER_COUNT = { GK: 1, DEF: 4, MID: 4, FWD: 2 };
     /* Pitch rows */
     .pitch-row { display: flex; justify-content: center; align-items: center; gap: 4px; flex: 1; min-height: 0; position: relative; z-index: 1; }
 
-    /* Bench separator */
-    .bench-sep { width: 1px; height: 64px; background: rgba(255,255,255,0.15); margin: 0 2px; flex-shrink: 0; }
+    /* Bench strip */
+    .bench-strip { background: rgba(0,0,0,0.35); border-top: 1px dashed rgba(255,255,255,0.15); flex-shrink: 0; padding: 4px 4px 4px; }
+    .bench-strip-label { text-align: center; color: rgba(255,255,255,0.35); font-size: 8px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 3px; }
+    .bench-strip-slots { display: flex; justify-content: center; gap: 6px; }
 
     /* Slot wrapper */
-    .p-slot { display: flex; flex-direction: column; align-items: center; cursor: pointer; width: 72px; flex-shrink: 0; }
-    .p-slot.is-bench { opacity: 0.75; }
-    .p-slot.is-bench:hover { opacity: 1; }
+    .p-slot { display: flex; flex-direction: column; align-items: center; cursor: pointer; width: 72px; flex-shrink: 0; position: relative; }
+    .p-slot.is-bench .p-card { opacity: 0.85; }
+    .p-slot.is-bench:hover .p-card { opacity: 1; }
     .p-slot.p-active .p-card { outline: 2px solid #fff; outline-offset: 1px; }
+    .p-slot.is-swap-target { cursor: pointer; }
+    .p-slot.is-swap-target .p-card { outline: 2px solid #f59e0b; outline-offset: 1px; box-shadow: 0 0 8px rgba(245,158,11,0.5); }
+    .swap-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 10; display: flex; align-items: center; justify-content: center; font-size: 20px; color: #f59e0b; pointer-events: none; animation: swap-pulse 0.8s ease-in-out infinite alternate; }
+    @keyframes swap-pulse { from { opacity: 0.6; } to { opacity: 1; } }
 
     /* ── FIFA-style CARD ── */
     .p-card {
@@ -390,6 +497,17 @@ const STARTER_COUNT = { GK: 1, DEF: 4, MID: 4, FWD: 2 };
       background: rgba(255,255,255,0.05);
       border: 1px dashed rgba(255,255,255,0.2);
       justify-content: center; padding: 4px 0;
+    }
+    .p-card-bench {
+      background: #141824;
+      border-color: rgba(255,255,255,0.08);
+      opacity: 0.82;
+    }
+    .bench-badge {
+      position: absolute; top: 2px; left: 50%; transform: translateX(-50%);
+      font-size: 6px; font-weight: 900; letter-spacing: 1px;
+      color: #6b7280; background: rgba(0,0,0,0.4);
+      padding: 1px 4px; border-radius: 3px; z-index: 3; white-space: nowrap;
     }
 
     /* Icon row at top of card */
@@ -452,6 +570,8 @@ const STARTER_COUNT = { GK: 1, DEF: 4, MID: 4, FWD: 2 };
     .am-name { color: #fff; font-size: 12px; font-weight: 700; }
     .am-meta { color: #6b7280; font-size: 10px; }
     .am-close { background: none; border: 1px solid #374151; color: #9ca3af; width: 24px; height: 24px; border-radius: 50%; cursor: pointer; font-size: 11px; }
+    .am-swap-hint { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); border-radius: 6px; padding: 5px 10px; margin-bottom: 6px; text-align: center; }
+    .am-hint-text { color: #fbbf24; font-size: 11px; font-weight: 600; }
     .am-actions { display: flex; gap: 6px; }
     .am-btn { flex: 1; padding: 6px 4px; border-radius: 6px; border: none; font-size: 11px; font-weight: 800; cursor: pointer; }
     .am-remove { background: #1f2937; color: #f87171; }
@@ -466,6 +586,10 @@ const STARTER_COUNT = { GK: 1, DEF: 4, MID: 4, FWD: 2 };
     .cap-tag { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 115px; }
     .c-tag { background: rgba(245,158,11,.15); color: #fbbf24; border: 1px solid rgba(245,158,11,.3); }
     .v-tag { background: rgba(124,58,237,.2); color: #c4b5fd; border: 1px solid rgba(124,58,237,.4); }
+    .pitch-display-select { position: absolute; top: 8px; right: 8px; z-index: 5; background: #1d4ed8; color: #fff; border: 2px solid #3b82f6; border-radius: 8px; padding: 5px 12px; font-size: 12px; font-weight: 800; cursor: pointer; outline: none; letter-spacing: .5px; }
+    .pitch-display-select option { background: #1e2433; }
+    .formation-select { background: #1f2937; color: #fff; border: 1px solid #374151; border-radius: 8px; padding: 5px 10px; font-size: 12px; font-weight: 800; cursor: pointer; outline: none; letter-spacing: .5px; }
+    .formation-select:focus { border-color: #3b82f6; }
     .autopick-btn { background: #d4e600; color: #000; border: none; border-radius: 20px; padding: 7px 16px; font-size: 13px; font-weight: 900; cursor: pointer; letter-spacing: .5px; white-space: nowrap; transition: opacity .2s; }
     .autopick-btn:hover { opacity: .9; }
     .autopick-btn.picking { animation: pulse-scale .6s ease-in-out; }
@@ -474,6 +598,7 @@ const STARTER_COUNT = { GK: 1, DEF: 4, MID: 4, FWD: 2 };
 
     /* Save */
     .save-row { padding: 5px 4px; flex-shrink: 0; }
+    .window-closed-bar { background: #2d0a0a; color: #fca5a5; border: 1px solid #7f1d1d; border-radius: 6px; padding: 5px 10px; font-size: 11px; font-weight: 700; text-align: center; margin-bottom: 5px; }
     .save-btn { width: 100%; padding: 10px; background: #0d0d0d; color: #fff; border: 1px solid #333; border-radius: 8px; font-size: 13px; font-weight: 800; cursor: pointer; transition: all .15s; }
     .save-btn:not(:disabled):hover { background: #1a1a1a; border-color: #555; }
     .save-btn:disabled { opacity: .4; cursor: not-allowed; }
@@ -560,6 +685,8 @@ const STARTER_COUNT = { GK: 1, DEF: 4, MID: 4, FWD: 2 };
     .pr-add-btn:disabled { opacity: .25; cursor: not-allowed; }
     .pr-rem-btn { border-color: #ef4444; color: #ef4444; }
     .pr-rem-btn:hover { border-color: #fca5a5; color: #fca5a5; background: rgba(239,68,68,0.1); }
+    .pr-sub-btn { border-color: #f59e0b; color: #f59e0b; font-size: 14px; }
+    .pr-sub-btn:hover { border-color: #fcd34d; color: #fcd34d; background: rgba(245,158,11,0.12); }
 
     /* ── RESPONSIVE ── */
     @media (max-width: 768px) {
@@ -575,16 +702,17 @@ export class MyTeamComponent implements OnInit {
   private api  = inject(ApiService);
   private auth = inject(AuthService);
 
-  readonly FIXED_ROWS    = FIXED_ROWS;
-  readonly POS_LIST      = ['GK', 'DEF', 'MID', 'FWD'];
-  readonly TOTAL_QUOTA   = TOTAL_QUOTA;
-  readonly TOTAL_PLAYERS = TOTAL_PLAYERS;
+  readonly BENCH_ROW  = BENCH_ROW;
+  readonly FORMATIONS = Object.keys(FORMATIONS);
+  readonly POS_LIST   = ['GK', 'DEF', 'MID', 'FWD'];
 
   allPlayers     = signal<Player[]>([]);
   poolLoading    = signal(true);
   existingTeam   = signal<UserTeam | null>(null);
   nextMatch      = signal<Match | null>(null);
   transferRecord = signal<UserTransferRecord | null>(null);
+  roundConfigs        = signal<RoundConfig[]>([]);
+  activeRoundConfig   = signal<RoundConfig | null>(null);
 
   starterSlots = signal<(number | null)[]>(Array(11).fill(null));
   benchSlots   = signal<(number | null)[]>(Array(4).fill(null));
@@ -596,8 +724,12 @@ export class MyTeamComponent implements OnInit {
   poolSearch     = signal('');
   sortBy         = signal('price_desc');
   autoPicking    = signal(false);
+  formation      = signal('4-4-2');
+  pitchDisplay   = signal<'price' | 'pts'>('price');
   message        = signal('');
   msgOk          = signal(true);
+
+  pitchRows = computed(() => buildRows(this.formation()));
 
   private originalSquadIds = new Set<number>();
 
@@ -607,6 +739,8 @@ export class MyTeamComponent implements OnInit {
   benchIdsArr  = computed(() => this.benchSlots().filter((id): id is number => id !== null));
   allPickedIds = computed(() => new Set([...this.starterIds(), ...this.benchIdsArr()]));
   pickedCount  = computed(() => this.allPickedIds().size);
+  xiCount      = computed(() => this.starterIds().size);
+  benchCount   = computed(() => this.benchIdsArr().length);
 
   remainingBudget = computed(() => {
     const used = [...this.allPickedIds()].reduce((sum, id) => {
@@ -626,9 +760,24 @@ export class MyTeamComponent implements OnInit {
     return id ? (this.allPlayers().find(p => p.id === id)?.name ?? null) : null;
   });
 
-  currentStage          = computed(() => this.nextMatch()?.stage ?? 'R32');
-  freeTransfersForStage = computed(() => FREE_TRANSFERS[this.currentStage()] ?? 2);
-  isUnlimitedStage      = computed(() => this.freeTransfersForStage() === Infinity);
+  // Server-authoritative stage from roundStart; falls back to earliest upcoming match stage
+  currentStage  = computed(() =>
+    this.activeRoundConfig()?.stage ?? this.nextMatch()?.stage ?? 'R32'
+  );
+  currentConfig = computed(() =>
+    this.activeRoundConfig() ?? this.roundConfigs().find(c => c.stage === this.currentStage()) ?? null
+  );
+
+  freeTransfersForStage = computed(() => {
+    const c = this.currentConfig();
+    return c ? c.freeTransfers : (DEFAULT_FREE_TRANSFERS[this.currentStage()] ?? 2);
+  });
+  isUnlimitedStage = computed(() => this.freeTransfersForStage() === Infinity);
+
+  countryLimitForStage = computed(() => {
+    const c = this.currentConfig();
+    return c ? c.countryLimit : (DEFAULT_COUNTRY_LIMIT[this.currentStage()] ?? 3);
+  });
 
   deadlineLabel = computed(() => {
     const m = this.nextMatch();
@@ -638,8 +787,23 @@ export class MyTeamComponent implements OnInit {
 
   pendingTransfers = computed(() => {
     if (!this.existingTeam()) return 0;
-    // Count any player in the current 15 that wasn't in the original saved 15
+    // Only count players new to the squad (not in the original saved 15) — swaps within the 15 are free
     return [...this.allPickedIds()].filter(id => !this.originalSquadIds.has(id)).length;
+  });
+
+  hasSubstitutionChanges = computed(() => {
+    if (!this.existingTeam()) return false;
+    if (this.pendingTransfers() > 0) return false;
+    // Check if XI/bench order changed vs original (same 15, different split)
+    const origStarters = new Set(this.existingTeam()!.starters.map((p: Player) => p.id));
+    return [...this.starterIds()].some(id => !origStarters.has(id));
+  });
+
+  saveButtonLabel = computed(() => {
+    if (!this.existingTeam()) return 'Save My Team';
+    if (this.hasSubstitutionChanges()) return 'Confirm Substitution';
+    if (this.pendingTransfers() > 0) return 'Confirm Transfers';
+    return 'Confirm Transfers';
   });
 
   transfersRemaining = computed(() => {
@@ -686,14 +850,42 @@ export class MyTeamComponent implements OnInit {
     return list;
   });
 
+  windowOpen = computed(() => {
+    const c = this.currentConfig();
+    const openHour  = c?.windowOpenHour  ?? 12;
+    const closeHour = c?.windowCloseHour ?? 19;
+    const tz        = c?.windowTimezone  ?? 'Asia/Kolkata';
+    try {
+      const hour = new Date().toLocaleString('en-US', { hour: 'numeric', hour12: false, timeZone: tz });
+      const h = parseInt(hour, 10);
+      return h >= openHour && h < closeHour;
+    } catch {
+      // Fallback to IST offset if Intl timezone lookup fails
+      const now = new Date();
+      const utcMs = now.getTime() + now.getTimezoneOffset() * 60 * 1000;
+      const h = new Date(utcMs + 5.5 * 3600 * 1000).getHours();
+      return h >= openHour && h < closeHour;
+    }
+  });
+
   canSave = computed(() =>
     this.starterIds().size === 11 && this.benchIdsArr().length === 4 &&
-    !!this.captainId() && !!this.vcId() && this.remainingBudget() >= 0
+    !!this.captainId() && !!this.vcId() && this.remainingBudget() >= 0 &&
+    this.windowOpen()
   );
 
   // ── Init ──────────────────────────────────────────────────────────────────
 
   ngOnInit() {
+    this.api.getRoundConfigs().subscribe({
+      next: configs => this.roundConfigs.set(configs),
+      error: () => {}
+    });
+    this.api.getActiveRoundConfig().subscribe({
+      next: active => this.activeRoundConfig.set(active),
+      error: () => {}
+    });
+
     this.api.getAllPlayers().subscribe({
       next: players => {
         this.api.getPlayerPoints().subscribe({
@@ -729,25 +921,13 @@ export class MyTeamComponent implements OnInit {
   }
 
   private loadTeamIntoSlots(team: UserTeam) {
-    // Split starters only by position to fill fixed XI slots
-    const xiByPos: Record<string, number[]> = { GK: [], DEF: [], MID: [], FWD: [] };
-    team.starters.forEach((p: Player) => xiByPos[p.position]?.push(p.id));
-
-    // Split bench only by position to fill fixed bench slots
-    const bnByPos: Record<string, number[]> = { GK: [], DEF: [], MID: [], FWD: [] };
-    team.bench.forEach((p: Player) => bnByPos[p.position]?.push(p.id));
-
-    const xi: (number | null)[] = Array(11).fill(null);
-    if (xiByPos['GK'][0]  != null) xi[0] = xiByPos['GK'][0];
-    xiByPos['DEF'].slice(0, 4).forEach((id, j) => { xi[1 + j] = id; });
-    xiByPos['MID'].slice(0, 4).forEach((id, j) => { xi[5 + j] = id; });
-    xiByPos['FWD'].slice(0, 2).forEach((id, j) => { xi[9 + j] = id; });
-
-    const bn: (number | null)[] = Array(4).fill(null);
-    if (bnByPos['GK'][0]  != null) bn[0] = bnByPos['GK'][0];
-    if (bnByPos['DEF'][0] != null) bn[1] = bnByPos['DEF'][0];
-    if (bnByPos['MID'][0] != null) bn[2] = bnByPos['MID'][0];
-    if (bnByPos['FWD'][0] != null) bn[3] = bnByPos['FWD'][0];
+    // Restore formation first so pitchRows is correct before slots are set
+    if (team.formation && FORMATIONS[team.formation]) {
+      this.formation.set(team.formation);
+    }
+    // starters and bench are returned in slot_order from the backend — map directly by index
+    const xi: (number | null)[] = [...team.starters.map((p: Player) => p.id), ...Array(11).fill(null)].slice(0, 11);
+    const bn: (number | null)[] = [...team.bench.map((p: Player) => p.id),    ...Array(4).fill(null)].slice(0, 4);
 
     this.starterSlots.set(xi);
     this.benchSlots.set(bn);
@@ -763,12 +943,67 @@ export class MyTeamComponent implements OnInit {
     return !!s && s.type === slot.type && s.i === slot.i && s.pos === slot.pos;
   }
 
+  isSwapTarget(slot: SlotRef): boolean {
+    const s = this.activeSlot();
+    if (!s || s.type === slot.type || s.pos !== slot.pos) return false;
+    const targetId = slot.type === 'xi' ? this.starterSlots()[slot.i] : this.benchSlots()[slot.i];
+    return targetId !== null;
+  }
+
   tapSlot(type: 'xi' | 'bench', i: number, pos: string) {
     const cur = this.activeSlot();
-    if (cur?.type === type && cur?.i === i && cur?.pos === pos) { this.activeSlot.set(null); return; }
+    // Tap opposite-group slot of same position → free substitution swap
+    if (cur && cur.type !== type && cur.pos === pos) {
+      this.doSwap(cur, { type, i, pos });
+      this.activeSlot.set(null);
+      return;
+    }
+    if (cur?.type === type && cur?.i === i) { this.activeSlot.set(null); return; }
     const id = type === 'xi' ? this.starterSlots()[i] : this.benchSlots()[i];
     this.activeSlot.set({ type, i, pos });
     if (id === null) this.poolPos.set(pos);
+  }
+
+  private doSwap(a: SlotRef, b: SlotRef) {
+    const slots = [...this.starterSlots()];
+    const bench = [...this.benchSlots()];
+    const getVal = (s: SlotRef) => s.type === 'xi' ? slots[s.i] : bench[s.i];
+    const setVal = (s: SlotRef, v: number | null) => {
+      if (s.type === 'xi') slots[s.i] = v; else bench[s.i] = v;
+    };
+    const va = getVal(a), vb = getVal(b);
+    setVal(a, vb); setVal(b, va);
+    this.starterSlots.set(slots);
+    this.benchSlots.set(bench);
+  }
+
+  canSubIntoActiveSlot(p: Player): boolean {
+    const s = this.activeSlot();
+    if (!s || p.position !== s.pos) return false;
+    if (s.type === 'xi')    return this.benchIdsArr().includes(p.id);
+    if (s.type === 'bench') return this.starterIds().has(p.id);
+    return false;
+  }
+
+  subPlayerIntoActiveSlot(p: Player) {
+    const s = this.activeSlot();
+    if (!s) return;
+    const slots = [...this.starterSlots()];
+    const bench = [...this.benchSlots()];
+    if (s.type === 'xi') {
+      const benchIdx = bench.findIndex(id => id === p.id);
+      if (benchIdx === -1) return;
+      bench[benchIdx] = slots[s.i];
+      slots[s.i] = p.id;
+    } else {
+      const xiIdx = slots.findIndex(id => id === p.id);
+      if (xiIdx === -1) return;
+      slots[xiIdx] = bench[s.i];
+      bench[s.i] = p.id;
+    }
+    this.starterSlots.set(slots);
+    this.benchSlots.set(bench);
+    this.activeSlot.set(null);
   }
 
   removeSlot(slot: SlotRef) {
@@ -849,11 +1084,8 @@ export class MyTeamComponent implements OnInit {
     if (this.autoPicking()) return;
     this.autoPicking.set(true); this.activeSlot.set(null);
 
-    const players     = this.allPlayers();
-    const stage       = this.currentStage();
-    const stageLim    = STAGE_LIMIT[stage] ?? 3;
-    const uniqueTeams = new Set(players.map(p => p.team.id)).size || 2;
-    const limit       = Math.max(stageLim, Math.ceil(15 / uniqueTeams));
+    const players = this.allPlayers();
+    const limit   = this.countryLimitForStage();
 
     // Sorted pools per position: descending price
     const byPos: Record<string, Player[]> = { GK: [], DEF: [], MID: [], FWD: [] };
@@ -864,18 +1096,21 @@ export class MyTeamComponent implements OnInit {
     const cheapest = (pos: string) =>
       byPos[pos].length ? byPos[pos][byPos[pos].length - 1].price : 5_000_000;
 
+    const [formDef, formMid, formFwd] = FORMATIONS[this.formation()] ?? FORMATIONS['4-4-2'];
+    const quota = quotaFor(this.formation()); // { GK:2, DEF: formDef+1, MID: formMid+1, FWD: formFwd+1 }
+
     const picked    = new Set<number>();
     const teamCount = new Map<number, number>();
     let budget      = BUDGET;
 
     // Remaining slots needed (decremented as we pick)
-    const remaining = { GK: 2, DEF: 5, MID: 5, FWD: 3 };
+    const remaining: Record<string, number> = { GK: quota['GK'], DEF: quota['DEF'], MID: quota['MID'], FWD: quota['FWD'] };
 
     // Budget floor = sum of cheapest player × unfilled slots EXCLUDING the slot we're about to fill
     const minReserve = (excludePos: string) => {
       let reserve = 0;
       for (const pos of ['GK', 'DEF', 'MID', 'FWD']) {
-        const slots = pos === excludePos ? remaining[pos as keyof typeof remaining] - 1 : remaining[pos as keyof typeof remaining];
+        const slots = pos === excludePos ? remaining[pos] - 1 : remaining[pos];
         reserve += slots * cheapest(pos);
       }
       return reserve;
@@ -888,35 +1123,36 @@ export class MyTeamComponent implements OnInit {
         if (result.length >= needed) break;
         if (picked.has(p.id)) continue;
         if ((teamCount.get(p.team.id) ?? 0) >= limit) continue;
-        // Only pick if this player's price still leaves enough for all remaining slots
         if (p.price > budget - minReserve(pos)) continue;
         result.push(p);
         picked.add(p.id);
         budget -= p.price;
-        remaining[pos as keyof typeof remaining]--;
+        remaining[pos]--;
         teamCount.set(p.team.id, (teamCount.get(p.team.id) ?? 0) + 1);
       }
       return result;
     };
 
     const gks  = pickN('GK',  2);
-    const defs = pickN('DEF', 5);
-    const mids = pickN('MID', 5);
-    const fwds = pickN('FWD', 3);
+    const defs = pickN('DEF', quota['DEF']);
+    const mids = pickN('MID', quota['MID']);
+    const fwds = pickN('FWD', quota['FWD']);
 
+    // Fill XI slots: GK slot 0, then formDef DEF, formMid MID, formFwd FWD
     const newXI: (number | null)[] = Array(11).fill(null);
-    if (gks[0])  newXI[0] = gks[0].id;
-    defs.slice(0, 4).forEach((p, j) => { newXI[1 + j] = p.id; });
-    mids.slice(0, 4).forEach((p, j) => { newXI[5 + j] = p.id; });
-    fwds.slice(0, 2).forEach((p, j) => { newXI[9 + j] = p.id; });
+    if (gks[0]) newXI[0] = gks[0].id;
+    defs.slice(0, formDef).forEach((p, j) => { newXI[1 + j] = p.id; });
+    mids.slice(0, formMid).forEach((p, j) => { newXI[1 + formDef + j] = p.id; });
+    fwds.slice(0, formFwd).forEach((p, j) => { newXI[1 + formDef + formMid + j] = p.id; });
 
+    // Fill bench: 1 GK sub + 1 of each outfield position
     const newBn: (number | null)[] = Array(4).fill(null);
-    if (gks[1])  newBn[0] = gks[1].id;
-    if (defs[4]) newBn[1] = defs[4].id;
-    if (mids[4]) newBn[2] = mids[4].id;
-    if (fwds[2]) newBn[3] = fwds[2].id;
+    if (gks[1])             newBn[0] = gks[1].id;
+    if (defs[formDef])      newBn[1] = defs[formDef].id;
+    if (mids[formMid])      newBn[2] = mids[formMid].id;
+    if (fwds[formFwd])      newBn[3] = fwds[formFwd].id;
 
-    const starters = [gks[0], ...defs.slice(0, 4), ...mids.slice(0, 4), ...fwds.slice(0, 2)]
+    const starters = [gks[0], ...defs.slice(0, formDef), ...mids.slice(0, formMid), ...fwds.slice(0, formFwd)]
       .filter((p): p is Player => !!p)
       .sort((a, b) => b.price - a.price);
 
@@ -932,6 +1168,44 @@ export class MyTeamComponent implements OnInit {
     this.captainId.set(null); this.vcId.set(null); this.activeSlot.set(null); this.message.set('');
   }
 
+  changeFormation(f: string) {
+    if (!FORMATIONS[f]) return;
+    // Remap existing XI slots to new formation's slot positions
+    const [newDef, newMid, newFwd] = FORMATIONS[f];
+    const [oldDef, oldMid] = FORMATIONS[this.formation()] ?? FORMATIONS['4-4-2'];
+    const slots = [...this.starterSlots()];
+
+    // Collect players by position from current slots
+    const byPos: Record<string, number[]> = { GK: [], DEF: [], MID: [], FWD: [] };
+    slots.forEach((id, i) => {
+      if (id !== null) byPos[slotPos(i, this.formation())]?.push(id);
+    });
+
+    // Build new slots with new formation counts
+    const newSlots: (number | null)[] = Array(11).fill(null);
+    newSlots[0] = byPos['GK'][0] ?? null;
+    for (let i = 0; i < newDef; i++) newSlots[1 + i] = byPos['DEF'][i] ?? null;
+    for (let i = 0; i < newMid; i++) newSlots[1 + newDef + i] = byPos['MID'][i] ?? null;
+    for (let i = 0; i < newFwd; i++) newSlots[1 + newDef + newMid + i] = byPos['FWD'][i] ?? null;
+
+    // Any overflow players (e.g. dropping from 4 DEF to 3 DEF) go to bench or are dropped
+    const bench = [...this.benchSlots()];
+    const overflowDef  = byPos['DEF'].slice(newDef);
+    const overflowMid  = byPos['MID'].slice(newMid);
+    const overflowFwd  = byPos['FWD'].slice(newFwd);
+    const overflow = [...overflowDef, ...overflowMid, ...overflowFwd];
+    overflow.forEach(id => {
+      // Try to place in bench slot for that position (slot 1=DEF, 2=MID, 3=FWD)
+      const pos = byPos['DEF'].includes(id) ? 1 : byPos['MID'].includes(id) ? 2 : 3;
+      if (bench[pos] === null) bench[pos] = id;
+    });
+
+    this.formation.set(f);
+    this.starterSlots.set(newSlots);
+    this.benchSlots.set(bench);
+    this.activeSlot.set(null);
+  }
+
   // ── Save ──────────────────────────────────────────────────────────────────
 
   saveTeam() {
@@ -942,8 +1216,7 @@ export class MyTeamComponent implements OnInit {
     const starterIds = this.starterSlots().filter((id): id is number => id !== null);
     const benchIds   = this.benchSlots().filter((id): id is number => id !== null);
     this.message.set('');
-    console.log('[transfer] pendingTransfers=', this.pendingTransfers(), 'originalSquadIds=', [...this.originalSquadIds], 'newAll=', [...starterIds, ...benchIds]);
-    this.api.saveMyTeam(+userId, starterIds, benchIds, cap, vc, this.currentStage()).subscribe({
+    this.api.saveMyTeam(+userId, starterIds, benchIds, cap, vc, this.currentStage(), this.formation()).subscribe({
       next: team => {
         this.existingTeam.set(team);
         this.originalSquadIds = new Set([...team.starters, ...team.bench].map((p: Player) => p.id));
@@ -976,7 +1249,7 @@ export class MyTeamComponent implements OnInit {
     return true;
   }
 
-  totalQuotaFor(pos: string): number { return TOTAL_QUOTA[pos as keyof typeof TOTAL_QUOTA] ?? 0; }
+  totalQuotaFor(pos: string): number { return quotaFor(this.formation())[pos] ?? 0; }
   posQuotaFull(pos: string): boolean { return this.countInSquad(pos) >= this.totalQuotaFor(pos); }
   countInSquad(pos: string): number {
     return [...this.allPickedIds()].filter(id => this.allPlayers().find(p => p.id === id)?.position === pos).length;
@@ -984,6 +1257,12 @@ export class MyTeamComponent implements OnInit {
   setPoolPos(pos: string) { this.poolPos.set(pos); }
   resetFilters() { this.poolSearch.set(''); this.sortBy.set('price_desc'); }
   posColor(pos: string): string { return POS_COLOR[pos] ?? '#6b7280'; }
+  fmtHour(h: number): string {
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    return `${h12}:00 ${ampm} IST`;
+  }
+
   fmtM(val: number): string { if (val < 0) return '-' + this.fmtM(-val); return '$' + (val / 1_000_000).toFixed(1) + 'm'; }
   shortName(name: string): string { const parts = name.trim().split(' '); return parts.length > 1 ? parts[parts.length - 1] : name; }
 }

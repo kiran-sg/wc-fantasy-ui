@@ -65,6 +65,7 @@ export interface UserTeam {
   id: number;
   user: AppUser;
   stage: string;
+  formation: string;
   starters: Player[];
   bench: Player[];
   captain: Player;
@@ -79,6 +80,16 @@ export interface UserTeamMatchPoints {
   match: Match;
   pointsEarned: number;
   stage: string;
+}
+
+export interface RoundConfig {
+  stage: string;
+  freeTransfers: number;
+  countryLimit: number;
+  windowOpenHour: number;
+  windowCloseHour: number;
+  windowTimezone: string;
+  roundStart: string | null; // ISO datetime UTC — null means not yet scheduled
 }
 
 export interface UserTransferRecord {

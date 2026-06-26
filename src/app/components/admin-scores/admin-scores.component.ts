@@ -14,7 +14,7 @@ import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { FormsModule, ReactiveFormsModule, FormControl } from '@angular/forms';
 import { UpperCasePipe } from '@angular/common';
 import { ApiService } from '../../services/api.service';
-import { AppUser, Match, UserTeam } from '../../models/models';
+import { AppUser, Match, UserTeam, RoundConfig } from '../../models/models';
 import { PointsGuideComponent } from '../points-guide/points-guide.component';
 
 @Component({
@@ -502,6 +502,70 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
           </div>
         </div>
       </mat-tab>
+
+      <!-- ═══════════════════ TAB 4: ROUND CONFIG ═══════════════════ -->
+      <mat-tab label="⚙️ Round Rules">
+        <div class="rc-wrap">
+          <p class="subtitle">Edit transfer window rules per round. Changes take effect immediately — no redeploy needed.</p>
+
+          <div class="rc-toolbar">
+            <button class="rc-sync-btn" [disabled]="rcSyncing()" (click)="syncRoundStarts()">
+              @if (rcSyncing()) { <mat-spinner diameter="14" style="display:inline-block;margin-right:6px"></mat-spinner> }
+              🔄 Sync Start Times from Matches
+            </button>
+          </div>
+
+          @if (rcLoading()) {
+            <div class="rc-loading">Loading config…</div>
+          } @else {
+            <div class="rc-table">
+              <div class="rc-header">
+                <span class="rc-col rc-stage">Stage</span>
+                <span class="rc-col">Free Xfers</span>
+                <span class="rc-col">Country Limit</span>
+                <span class="rc-col">Open (hr)</span>
+                <span class="rc-col">Close (hr)</span>
+                <span class="rc-col">Timezone</span>
+                <span class="rc-col rc-col-wide">Round Start (IST)</span>
+                <span class="rc-col"></span>
+              </div>
+              @for (row of rcRows(); track row.stage) {
+                <div class="rc-row" [class.rc-editing]="rcEditStage() === row.stage">
+                  <span class="rc-col rc-stage">
+                    <span class="stage-badge">{{ row.stage }}</span>
+                  </span>
+                  @if (rcEditStage() === row.stage) {
+                    <span class="rc-col"><input class="rc-input" type="number" [(ngModel)]="rcEdit.freeTransfers" min="1" max="15"></span>
+                    <span class="rc-col"><input class="rc-input" type="number" [(ngModel)]="rcEdit.countryLimit" min="1" max="11"></span>
+                    <span class="rc-col"><input class="rc-input" type="number" [(ngModel)]="rcEdit.windowOpenHour" min="0" max="23"></span>
+                    <span class="rc-col"><input class="rc-input" type="number" [(ngModel)]="rcEdit.windowCloseHour" min="1" max="24"></span>
+                    <span class="rc-col"><input class="rc-input rc-tz" type="text" [(ngModel)]="rcEdit.windowTimezone"></span>
+                    <span class="rc-col rc-col-wide"><input class="rc-input rc-dt" type="datetime-local" [(ngModel)]="rcEdit.roundStart" placeholder="yyyy-MM-ddTHH:mm"></span>
+                    <span class="rc-col rc-actions">
+                      <button class="rc-save-btn" (click)="saveRcRow(row.stage)">Save</button>
+                      <button class="rc-cancel-btn" (click)="rcEditStage.set(null)">Cancel</button>
+                    </span>
+                  } @else {
+                    <span class="rc-col rc-val">{{ row.freeTransfers }}</span>
+                    <span class="rc-col rc-val">{{ row.countryLimit }}</span>
+                    <span class="rc-col rc-val">{{ row.windowOpenHour }}:00</span>
+                    <span class="rc-col rc-val">{{ row.windowCloseHour }}:00</span>
+                    <span class="rc-col rc-val rc-tz-val">{{ row.windowTimezone }}</span>
+                    <span class="rc-col rc-col-wide rc-val rc-dt-val">{{ row.roundStart ? formatRoundStart(row.roundStart) : '—' }}</span>
+                    <span class="rc-col rc-actions">
+                      <button class="rc-edit-btn" (click)="startRcEdit(row)">Edit</button>
+                    </span>
+                  }
+                </div>
+              }
+            </div>
+            @if (rcMsg()) {
+              <div class="rc-msg" [class.rc-err]="rcMsgErr()">{{ rcMsg() }}</div>
+            }
+          }
+        </div>
+      </mat-tab>
+
     </mat-tab-group>
   `,
   styles: [`
@@ -722,6 +786,36 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
     .pts-p-total { font-size: 14px; font-weight: 900; color: #1a237e; min-width: 36px; text-align: right; flex-shrink: 0; display: flex; align-items: center; gap: 3px; justify-content: flex-end; }
     .pts-p-total.cap-pts { color: #f9a825; }
     .x2-tag { font-size: 9px; font-weight: 800; background: #f9a825; color: #fff; padding: 1px 4px; border-radius: 3px; }
+
+    /* ── Round Config tab ── */
+    .rc-wrap { padding-bottom: 32px; }
+    .rc-loading { padding: 32px; text-align: center; color: #999; font-size: 13px; }
+    .rc-table { border: 1px solid #e0e0e0; border-radius: 10px; overflow: hidden; margin-bottom: 12px; }
+    .rc-header, .rc-row { display: grid; grid-template-columns: 80px 1fr 1fr 1fr 1fr 1.8fr 2.2fr 130px; gap: 0; align-items: center; }
+    .rc-col-wide { min-width: 0; }
+    .rc-header { background: #e8eaf6; padding: 8px 12px; font-size: 10px; font-weight: 700; color: #3949ab; text-transform: uppercase; letter-spacing: 0.3px; }
+    .rc-row { border-top: 1px solid #f0f0f0; padding: 8px 12px; font-size: 13px; transition: background 0.1s; }
+    .rc-row:hover { background: #fafafa; }
+    .rc-editing { background: #f5f7ff !important; }
+    .rc-col { padding: 0 4px; }
+    .rc-stage { font-weight: 700; }
+    .stage-badge { background: #e8eaf6; color: #3949ab; font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; }
+    .rc-val { color: #333; }
+    .rc-tz-val { font-size: 11px; color: #666; }
+    .rc-input { width: 100%; border: 1px solid #c5cae9; border-radius: 5px; padding: 5px 7px; font-size: 12px; outline: none; background: #fff; }
+    .rc-input:focus { border-color: #1a237e; }
+    .rc-tz { font-size: 11px; }
+    .rc-actions { display: flex; gap: 5px; justify-content: flex-end; }
+    .rc-edit-btn { background: #e8eaf6; color: #3949ab; border: none; border-radius: 5px; padding: 4px 12px; font-size: 11px; font-weight: 700; cursor: pointer; }
+    .rc-edit-btn:hover { background: #c5cae9; }
+    .rc-save-btn { background: #1a237e; color: #fff; border: none; border-radius: 5px; padding: 4px 12px; font-size: 11px; font-weight: 700; cursor: pointer; }
+    .rc-cancel-btn { background: #f5f5f5; color: #555; border: none; border-radius: 5px; padding: 4px 10px; font-size: 11px; font-weight: 700; cursor: pointer; }
+    .rc-toolbar { margin-bottom: 12px; }
+    .rc-sync-btn { background: #e3f2fd; color: #1565c0; border: 1.5px solid #bbdefb; border-radius: 7px; padding: 6px 14px; font-size: 12px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; transition: background 0.12s; }
+    .rc-sync-btn:hover:not(:disabled) { background: #bbdefb; }
+    .rc-sync-btn:disabled { opacity: 0.6; cursor: default; }
+    .rc-msg { margin-top: 10px; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; background: #f1f8e9; color: #2e7d32; }
+    .rc-msg.rc-err { background: #ffebee; color: #c62828; }
   `]
 })
 export class AdminScoresComponent implements OnInit {
@@ -804,9 +898,66 @@ export class AdminScoresComponent implements OnInit {
     );
   });
 
+  // ── Round config ────────────────────────────────────────────────
+  rcRows      = signal<RoundConfig[]>([]);
+  rcLoading   = signal(false);
+  rcSyncing   = signal(false);
+  rcEditStage = signal<string | null>(null);
+  rcEdit: Partial<RoundConfig> = { freeTransfers: 0, countryLimit: 0, windowOpenHour: 0, windowCloseHour: 0, windowTimezone: '', roundStart: null };
+  rcMsg       = signal('');
+  rcMsgErr    = signal(false);
+
+  startRcEdit(row: RoundConfig) {
+    this.rcEdit = { ...row };
+    this.rcEditStage.set(row.stage);
+    this.rcMsg.set('');
+  }
+
+  saveRcRow(stage: string) {
+    this.api.updateRoundConfig(stage, this.rcEdit).subscribe({
+      next: updated => {
+        this.rcRows.update(rows => rows.map(r => r.stage === stage ? updated : r));
+        this.rcEditStage.set(null);
+        this.rcMsg.set(`✅ ${stage} rules saved`);
+        this.rcMsgErr.set(false);
+      },
+      error: err => {
+        this.rcMsg.set('❌ ' + (err.error?.message || 'Save failed'));
+        this.rcMsgErr.set(true);
+      }
+    });
+  }
+
+  loadRoundConfigs() {
+    this.rcLoading.set(true);
+    this.api.getRoundConfigs().subscribe({
+      next: configs => { this.rcRows.set(configs); this.rcLoading.set(false); },
+      error: () => this.rcLoading.set(false)
+    });
+  }
+
+  syncRoundStarts() {
+    this.rcSyncing.set(true);
+    this.rcMsg.set('');
+    this.api.syncRoundStarts().subscribe({
+      next: configs => {
+        this.rcRows.set(configs);
+        this.rcSyncing.set(false);
+        this.rcMsg.set('✅ Round start times synced from matches');
+        this.rcMsgErr.set(false);
+      },
+      error: err => {
+        this.rcSyncing.set(false);
+        this.rcMsg.set('❌ ' + (err.error?.message || 'Sync failed'));
+        this.rcMsgErr.set(true);
+      }
+    });
+  }
+
   ngOnInit() {
     this.loadMatches();
     this.loadUsers();
+    this.loadRoundConfigs();
     this.userSearchCtrl.valueChanges.subscribe(v => this.userSearchQuery.set(v ?? ''));
   }
 
@@ -1003,9 +1154,8 @@ export class AdminScoresComponent implements OnInit {
   breakdownForMatch(matchId: number, team: any): any[] {
     const stats = this.matchStatsCache[matchId];
     if (!stats || !team) return [];
-    const allPlayers = [...(team.starters || []), ...(team.bench || [])];
-    const playerIds = new Set(allPlayers.map((p: any) => p.id));
-    return stats.filter((s: any) => playerIds.has(s.player?.id));
+    const starterIds = new Set((team.starters || []).map((p: any) => p.id));
+    return stats.filter((s: any) => starterIds.has(s.player?.id));
   }
 
   private normaliseMonth(s: string): string {
@@ -1070,6 +1220,10 @@ export class AdminScoresComponent implements OnInit {
     if (pos === 'GK') pts += Math.floor((s.saves || 0) / 3);
     if (pos === 'FWD') pts += Math.floor((s.shotsOnTarget || 0) / 2);
     return pts;
+  }
+
+  formatRoundStart(dt: string): string {
+    return new Date(dt).toLocaleString('en-US', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true });
   }
 
   formatDate(dt: string): string {
