@@ -377,18 +377,32 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
                 @for (u of filteredUsers(); track u.id) {
                   <div class="sq-user-row"
                     [class.sq-user-active]="selectedUserId() === u.id"
-                    (click)="selectUser(u)">
+                    [class.sq-user-editing]="locEditId() === u.id"
+                    (click)="locEditId() !== u.id && selectUser(u)">
                     <div class="sq-u-avatar">{{ u.displayName[0] || u.username[0] | uppercase }}</div>
                     <div class="sq-u-info">
                       <span class="sq-u-name">{{ u.displayName || u.username }}</span>
                       <span class="sq-u-sub">
                         {{ u.username }}
-                        @if (u.location) {
+                        @if (u.location && locEditId() !== u.id) {
                           <span class="sq-u-loc" [class.tvm]="u.location === 'TVM'" [class.pune]="u.location === 'Pune'">{{ u.location }}</span>
                         }
                       </span>
+                      @if (locEditId() === u.id) {
+                        <div class="sq-u-loc-edit" (click)="$event.stopPropagation()">
+                          <select class="loc-select" [(ngModel)]="locEditValue">
+                            <option value="">— None —</option>
+                            <option value="TVM">TVM</option>
+                            <option value="Pune">Pune</option>
+                          </select>
+                          <button class="loc-save-btn" [disabled]="locSaving()" (click)="saveLocEdit(u)">✓</button>
+                          <button class="loc-cancel-btn" (click)="cancelLocEdit()">✕</button>
+                        </div>
+                      }
                     </div>
                     <span class="sq-u-pts">{{ u.totalPoints }} pts</span>
+                    <button class="sq-u-edit-btn" title="Edit location"
+                      (click)="$event.stopPropagation(); startLocEdit(u)">✏</button>
                     <button class="sq-u-del-btn" title="Delete user"
                       (click)="$event.stopPropagation(); deleteUser(u)">🗑</button>
                   </div>
@@ -767,11 +781,19 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
     .sq-u-name { display: block; font-size: 13px; font-weight: 600; color: #1a1a1a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .sq-u-sub { display: block; font-size: 10px; color: #999; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .sq-u-pts { font-size: 11px; font-weight: 700; color: #1a237e; white-space: nowrap; flex-shrink: 0; margin-left: auto; }
-    .sq-u-del-btn { flex-shrink: 0; background: none; border: none; cursor: pointer; font-size: 14px; padding: 4px 6px; border-radius: 6px; opacity: 0.4; transition: opacity .15s, background .15s; }
+    .sq-u-del-btn { flex-shrink: 0; background: none; border: none; cursor: pointer; font-size: 14px; padding: 4px 6px; border-radius: 6px; color: #e53935; opacity: 0.7; transition: opacity .15s, background .15s; }
     .sq-u-del-btn:hover { opacity: 1; background: #ffebee; }
+    .sq-u-edit-btn { flex-shrink: 0; background: none; border: none; cursor: pointer; font-size: 13px; padding: 4px 6px; border-radius: 6px; color: #555; opacity: 0.6; transition: opacity .15s, background .15s; }
+    .sq-u-edit-btn:hover { opacity: 1; background: #f5f7ff; }
     .sq-u-loc { display: inline-block; font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 4px; margin-left: 4px; vertical-align: middle; }
     .sq-u-loc.tvm { background: #e3f2fd; color: #1565c0; }
     .sq-u-loc.pune { background: #fce4ec; color: #c62828; }
+    .sq-user-editing { background: #f8f9ff !important; }
+    .sq-u-loc-edit { display: flex; align-items: center; gap: 4px; margin-top: 4px; }
+    .loc-select { font-size: 11px; padding: 3px 6px; border: 1px solid #c5cae9; border-radius: 5px; outline: none; background: #fff; cursor: pointer; }
+    .loc-save-btn { font-size: 12px; font-weight: 700; background: #1b5e20; color: #fff; border: none; border-radius: 5px; padding: 2px 8px; cursor: pointer; }
+    .loc-save-btn:disabled { opacity: .5; cursor: not-allowed; }
+    .loc-cancel-btn { font-size: 12px; background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; border-radius: 5px; padding: 2px 6px; cursor: pointer; }
 
     /* Location filter badges */
     .sq-loc-filters { display: flex; gap: 6px; padding: 8px 12px; border-bottom: 1px solid #f0f0f0; }
@@ -1023,6 +1045,11 @@ export class AdminScoresComponent implements OnInit {
   uploadingBulk   = signal(false);
   uploadFile: File | null = null;
   uploadResult    = signal<{ created?: number; skipped?: number; errors?: string[]; error?: string } | null>(null);
+
+  // Inline location editing
+  locEditId    = signal<number | null>(null);
+  locEditValue = '';
+  locSaving    = signal(false);
 
   finishedMatches = computed(() =>
     [...this.matches()].sort((a, b) => new Date(a.matchTime).getTime() - new Date(b.matchTime).getTime())
@@ -1380,6 +1407,31 @@ export class AdminScoresComponent implements OnInit {
   ppPosColor(pos: string): string {
     const map: Record<string, string> = { GK: '#f59e0b', DEF: '#10b981', MID: '#3b82f6', FWD: '#ef4444' };
     return map[pos] ?? '#9ca3af';
+  }
+
+  startLocEdit(u: AppUser) {
+    this.locEditId.set(u.id);
+    this.locEditValue = u.location ?? '';
+  }
+
+  saveLocEdit(u: AppUser) {
+    this.locSaving.set(true);
+    this.api.adminUpdateUser(u.id, { location: this.locEditValue }).subscribe({
+      next: res => {
+        u.location = res.location || null;
+        this.locEditId.set(null);
+        this.locSaving.set(false);
+      },
+      error: () => {
+        this.locSaving.set(false);
+        alert('Failed to update location');
+      }
+    });
+  }
+
+  cancelLocEdit() {
+    this.locEditId.set(null);
+    this.locEditValue = '';
   }
 
   selectUser(u: AppUser) {

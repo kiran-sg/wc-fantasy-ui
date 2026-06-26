@@ -56,12 +56,8 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
           <span>🏟️ {{ cleanVenue(match.venue) }}</span>
         </div>
         <div class="actions">
-          @if (match.status === 'UPCOMING') {
-            <a mat-flat-button color="primary" [routerLink]="['/squad', match.id]">Pick Squad</a>
-          }
           @if (match.status === 'LIVE') {
             <a mat-flat-button color="warn" [routerLink]="['/live', match.id]">🔴 Go Live</a>
-            <a mat-stroked-button [routerLink]="['/squad', match.id]">View Squad</a>
           }
           @if (match.status === 'COMPLETED') {
             <a mat-stroked-button [routerLink]="['/leaderboard']">🏆 Leaderboard</a>
