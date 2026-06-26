@@ -25,7 +25,7 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
     @for (match of matches(); track match.id) {
       <mat-card class="match-card" [class.locked]="match.status !== 'UPCOMING'" appearance="outlined">
         <div class="match-header">
-          <span class="match-stage">{{ match.stage }}</span>
+          <span class="match-stage">{{ stageLabel(match.stage) }}</span>
           @if (match.status !== 'UPCOMING') {
             <span class="status-badge" [class]="match.status.toLowerCase()">
               {{ statusLabel(match) }}
@@ -106,6 +106,15 @@ export class MatchListComponent implements OnInit {
       next: (m) => { this.matches.set(m.filter(x => x.stage !== 'GROUP')); this.loading.set(false); },
       error: () => this.loading.set(false)
     });
+  }
+
+  private readonly STAGE_LABELS: Record<string, string> = {
+    GROUP: 'Group Stage', R32: 'Round of 32', R16: 'Round of 16',
+    QF: 'Quarter-Final', SF: 'Semi-Final', LF: "Losers' Final", FINAL: 'Final'
+  };
+
+  stageLabel(stage: string): string {
+    return this.STAGE_LABELS[stage] ?? stage;
   }
 
   statusLabel(match: Match): string {

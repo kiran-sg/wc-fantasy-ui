@@ -14,7 +14,7 @@ const DEFAULT_COUNTRY_LIMIT:  Record<string, number> = { GROUP: 3, R32: 3, R16: 
 
 const STAGE_LABEL: Record<string, string> = {
   GROUP: 'Before Round of 32', R32: 'Round of 32', R16: 'Round of 16',
-  QF: 'Quarter-Final', SF: 'Semi-Final', FINAL: 'Final'
+  QF: 'Quarter-Final', SF: 'Semi-Final', LF: "Losers' Final", FINAL: 'Final'
 };
 
 type SlotRef = { pos: string; type: 'xi' | 'bench'; i: number };
