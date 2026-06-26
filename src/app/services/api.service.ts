@@ -144,7 +144,7 @@ export class ApiService {
     return this.http.get<any[]>(`${this.base}/admin/match-squads/${matchId}`);
   }
 
-  adminUpdateUser(userId: number, patch: { location?: string }): Observable<any> {
+  adminUpdateUser(userId: number, patch: { location?: string; displayName?: string }): Observable<any> {
     return this.http.patch(`${this.base}/admin/users/${userId}`, patch);
   }
 

@@ -377,8 +377,7 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
                 @for (u of filteredUsers(); track u.id) {
                   <div class="sq-user-row"
                     [class.sq-user-active]="selectedUserId() === u.id"
-                    [class.sq-user-editing]="locEditId() === u.id"
-                    (click)="locEditId() !== u.id && selectUser(u)">
+                    (click)="selectUser(u)">
                     <div class="sq-u-avatar">{{ u.displayName[0] || u.username[0] | uppercase }}</div>
                     <div class="sq-u-info">
                       <span class="sq-u-name">{{ u.displayName || u.username }}</span>
@@ -388,23 +387,8 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
                           <span class="sq-u-loc" [class.tvm]="u.location === 'TVM'" [class.pune]="u.location === 'Pune'">{{ u.location }}</span>
                         }
                       </span>
-                      @if (locEditId() === u.id) {
-                        <div class="sq-u-loc-edit" (click)="$event.stopPropagation()">
-                          <select class="loc-select" [(ngModel)]="locEditValue">
-                            <option value="">— None —</option>
-                            <option value="TVM">TVM</option>
-                            <option value="Pune">Pune</option>
-                          </select>
-                          <button class="loc-save-btn" [disabled]="locSaving()" (click)="saveLocEdit(u)">✓</button>
-                          <button class="loc-cancel-btn" (click)="cancelLocEdit()">✕</button>
-                        </div>
-                      }
                     </div>
                     <span class="sq-u-pts">{{ u.totalPoints }} pts</span>
-                    <button class="sq-u-edit-btn" title="Edit location"
-                      (click)="$event.stopPropagation(); startLocEdit(u)">✏</button>
-                    <button class="sq-u-del-btn" title="Delete user"
-                      (click)="$event.stopPropagation(); deleteUser(u)">🗑</button>
                   </div>
                 }
                 @if (filteredUsers().length === 0 && allUsers().length > 0) {
@@ -764,7 +748,7 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
     .sq-layout { display: flex; gap: 16px; align-items: flex-start; }
 
     /* User list panel */
-    .sq-user-panel { position: sticky; top: 72px; width: 240px; flex-shrink: 0; background: #fff; border: 1px solid #e0e0e0; border-radius: 12px; overflow: hidden; }
+    .sq-user-panel { position: sticky; top: 72px; flex: 0 0 40%; min-width: 0; background: #fff; border: 1px solid #e0e0e0; border-radius: 12px; overflow: hidden; }
     .sq-user-search { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid #f0f0f0; }
     .sq-user-search .search-icon { color: #999; font-size: 18px; width: 18px; height: 18px; flex-shrink: 0; }
     .sq-user-search .search-input { flex: 1; border: none; outline: none; background: transparent; font-size: 13px; color: #222; min-width: 0; }
@@ -789,7 +773,9 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
     .sq-u-loc.tvm { background: #e3f2fd; color: #1565c0; }
     .sq-u-loc.pune { background: #fce4ec; color: #c62828; }
     .sq-user-editing { background: #f8f9ff !important; }
-    .sq-u-loc-edit { display: flex; align-items: center; gap: 4px; margin-top: 4px; }
+    .sq-u-loc-edit { display: flex; align-items: center; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
+    .loc-name-input { font-size: 11px; padding: 3px 6px; border: 1px solid #c5cae9; border-radius: 5px; outline: none; background: #fff; width: 120px; min-width: 0; }
+    .loc-name-input:focus { border-color: #1a237e; }
     .loc-select { font-size: 11px; padding: 3px 6px; border: 1px solid #c5cae9; border-radius: 5px; outline: none; background: #fff; cursor: pointer; }
     .loc-save-btn { font-size: 12px; font-weight: 700; background: #1b5e20; color: #fff; border: none; border-radius: 5px; padding: 2px 8px; cursor: pointer; }
     .loc-save-btn:disabled { opacity: .5; cursor: not-allowed; }
@@ -825,7 +811,7 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
     .au-cancel-btn { font-size: 12px !important; color: #888 !important; }
 
     /* Squad detail panel */
-    .sq-detail-panel { flex: 1; min-width: 0; }
+    .sq-detail-panel { flex: 0 0 60%; min-width: 0; }
 
     /* Empty state */
     .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 24px; color: #9e9e9e; text-align: center; }
@@ -1046,10 +1032,11 @@ export class AdminScoresComponent implements OnInit {
   uploadFile: File | null = null;
   uploadResult    = signal<{ created?: number; skipped?: number; errors?: string[]; error?: string } | null>(null);
 
-  // Inline location editing
-  locEditId    = signal<number | null>(null);
-  locEditValue = '';
-  locSaving    = signal(false);
+  // Inline user editing (location + display name)
+  locEditId          = signal<number | null>(null);
+  locEditValue       = '';
+  locEditDisplayName = '';
+  locSaving          = signal(false);
 
   finishedMatches = computed(() =>
     [...this.matches()].sort((a, b) => new Date(a.matchTime).getTime() - new Date(b.matchTime).getTime())
@@ -1412,19 +1399,21 @@ export class AdminScoresComponent implements OnInit {
   startLocEdit(u: AppUser) {
     this.locEditId.set(u.id);
     this.locEditValue = u.location ?? '';
+    this.locEditDisplayName = u.displayName ?? '';
   }
 
   saveLocEdit(u: AppUser) {
     this.locSaving.set(true);
-    this.api.adminUpdateUser(u.id, { location: this.locEditValue }).subscribe({
+    this.api.adminUpdateUser(u.id, { location: this.locEditValue, displayName: this.locEditDisplayName }).subscribe({
       next: res => {
         u.location = res.location || null;
+        if (res.displayName) u.displayName = res.displayName;
         this.locEditId.set(null);
         this.locSaving.set(false);
       },
       error: () => {
         this.locSaving.set(false);
-        alert('Failed to update location');
+        alert('Failed to update user');
       }
     });
   }
@@ -1432,6 +1421,7 @@ export class AdminScoresComponent implements OnInit {
   cancelLocEdit() {
     this.locEditId.set(null);
     this.locEditValue = '';
+    this.locEditDisplayName = '';
   }
 
   selectUser(u: AppUser) {
