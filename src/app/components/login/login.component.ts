@@ -30,10 +30,10 @@ import { AuthService } from '../../services/auth.service';
 
         <mat-card-content>
           <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Username</mat-label>
+            <mat-label>User ID / Hash ID</mat-label>
             <mat-icon matPrefix>person</mat-icon>
             <input matInput [(ngModel)]="username" (keyup.enter)="submit()"
-              placeholder="Enter your username" autocomplete="username">
+              placeholder="Enter your User ID or Hash ID" autocomplete="username">
           </mat-form-field>
 
           @if (error) {
