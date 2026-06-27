@@ -1809,13 +1809,13 @@ export class AdminScoresComponent implements OnInit {
     let list = this.allTeamsAdmin();
     if (q) list = list.filter(t => t.name?.toLowerCase().includes(q) || t.code?.toLowerCase().includes(q) || t.group?.toLowerCase().includes(q));
     list = [...list].sort((a, b) => {
-      // Eliminated always on top regardless of sort
-      if (a.eliminated !== b.eliminated) return a.eliminated ? -1 : 1;
+      // Eliminated always at the bottom regardless of sort
+      if (a.eliminated !== b.eliminated) return a.eliminated ? 1 : -1;
       let cmp = 0;
       switch (this.taSort) {
         case 'code':   cmp = (a.code ?? '').localeCompare(b.code ?? ''); break;
         case 'group':  cmp = (a.group ?? '').localeCompare(b.group ?? ''); break;
-        case 'status': cmp = (a.eliminated === b.eliminated) ? 0 : (a.eliminated ? -1 : 1); break;
+        case 'status': cmp = (a.eliminated === b.eliminated) ? 0 : (a.eliminated ? 1 : -1); break;
         default:       cmp = (a.name ?? '').localeCompare(b.name ?? ''); break;
       }
       return cmp * this.taSortDir;
