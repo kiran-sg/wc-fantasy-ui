@@ -1017,7 +1017,7 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
     .sq-detail-panel { flex: 0 0 60%; min-width: 0; }
 
     /* Pitch wrap */
-    .sq-pitch-wrap { background: #fff; border: 1px solid #e0e0e0; border-radius: 12px; overflow: hidden; }
+    .sq-pitch-wrap { background: #fff; border: 1px solid #e0e0e0; border-radius: 12px; overflow: hidden; padding-bottom: 8px; }
     .sq-display-select { margin-left: auto; background: #1d4ed8; color: #fff; border: 2px solid #3b82f6; border-radius: 8px; padding: 4px 10px; font-size: 11px; font-weight: 800; cursor: pointer; outline: none; }
     .sq-display-select option { background: #1e2433; }
 
@@ -1168,44 +1168,40 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
       .nav-label { display: none; }
       .nav-icon { font-size: 18px; }
 
-      /* Squads — stays in flow, fills remaining screen below admin header */
-      /* 215px = 64px container-top + ~79px admin-header + 72px container-bottom */
-      .squads-browser {
-        height: calc(100dvh - 215px);
-        overflow: hidden;
-        display: flex; flex-direction: column;
-        padding-bottom: 0;
-      }
-      .sq-layout {
-        flex: 1; min-height: 0;
-        display: flex; flex-direction: column; overflow: hidden; gap: 0;
-      }
+      /* Squads — users list fills viewport height, pitch scrolls freely */
+      .squads-browser { padding-bottom: 0; }
+
+      .sq-layout { flex-direction: column; gap: 0; }
+
+      /* Users panel: fixed height = remaining viewport, internal scroll */
       .sq-user-panel {
         position: static; width: 100%; border-radius: 0; border: none;
-        flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden;
+        height: calc(100dvh - 215px);
+        display: flex; flex-direction: column; overflow: hidden;
       }
       .sq-user-list { flex: 1; min-height: 0; overflow-y: auto; max-height: none; }
+
+      /* Hide pitch panel by default */
       .sq-detail-panel { display: none; width: 100%; }
 
+      /* Squad view: hide users, show pitch — scrollable, no height cap */
       .sq-layout.mobile-show-squad .sq-user-panel { display: none; }
-      .sq-layout.mobile-show-squad .sq-detail-panel {
-        display: flex; flex-direction: column;
-        flex: 1; min-height: 0; overflow: hidden;
+      .sq-layout.mobile-show-squad .sq-detail-panel { display: block; width: 100%; }
+
+      /* Pitch wrap: natural height, scrollable */
+      .sq-pitch-wrap { border-radius: 0; border: none; overflow: visible; }
+      .sq-pitch { min-height: 320px; }
+      .sq-bench-strip { }
+      .pts-breakdown { }
+
+      /* Back button: sticky at bottom of viewport so always visible */
+      .sq-back-bar {
+        display: flex;
+        position: sticky; bottom: 0; z-index: 10;
+        background: #f5f5f5; border-top: 1px solid #e0e0e0;
       }
-      .sq-pitch-wrap {
-        flex: 1; min-height: 0;
-        display: flex; flex-direction: column; overflow: hidden;
-        border-radius: 0; border: none;
-      }
-      .sq-single-header { flex-shrink: 0; }
-      .sq-pitch { flex: 1; min-height: 0; }
-      .sq-bench-strip { flex-shrink: 0; }
-      .pts-breakdown { overflow-y: auto; max-height: 140px; }
-      .sq-back-bar { display: flex; flex-shrink: 0; }
-      .sq-no-squad-wrap {
-        flex: 1; min-height: 0; border-radius: 0; border: none;
-        display: flex; flex-direction: column; justify-content: space-between; overflow: hidden;
-      }
+      .sq-no-squad-wrap { border-radius: 0; border: none; }
+
       .sq-pitch .p-slot, .sq-bench-strip .p-slot { width: 62px; }
       .sq-pitch .p-card, .sq-bench-strip .p-card { width: 58px; }
 
