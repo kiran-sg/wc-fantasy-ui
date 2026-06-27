@@ -1610,7 +1610,7 @@ export class AdminScoresComponent implements OnInit {
   ppAddSaving    = signal(false);
   allTeams       = signal<any[]>([]);
   ppShowEliminated = signal(false);
-  ppPlayerPoints   = signal<Record<number, number>>({});
+  ppPlayerPoints   = signal<Record<number, number | undefined>>({});
 
   // Teams management
   allTeamsAdmin    = signal<any[]>([]);
