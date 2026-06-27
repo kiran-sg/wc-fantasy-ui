@@ -961,7 +961,7 @@ export class MyTeamComponent implements OnInit {
     });
 
     this.api.getMatches().subscribe(matches => {
-      const upcoming = matches.filter(m => m.status === 'UPCOMING')
+      const upcoming = matches.filter(m => m.status === 'UPCOMING' && m.stage !== 'GROUP')
         .sort((a, b) => new Date(a.matchTime).getTime() - new Date(b.matchTime).getTime());
       this.nextMatch.set(upcoming[0] ?? null);
       const userId = this.auth.getUserId();
