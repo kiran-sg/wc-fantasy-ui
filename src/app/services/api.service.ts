@@ -156,12 +156,20 @@ export class ApiService {
     return this.http.post(`${this.base}/admin/users`, { username, displayName, location, isAdmin });
   }
 
+  adminCreatePlayer(name: string, position: string, teamId: number, price: number): Observable<any> {
+    return this.http.post(`${this.base}/admin/players`, { name, position, teamId, price });
+  }
+
   adminDeletePlayer(playerId: number): Observable<any> {
     return this.http.delete(`${this.base}/admin/players/${playerId}`);
   }
 
   adminUpdatePlayerPrice(playerId: number, priceInUnits: number): Observable<any> {
     return this.http.patch(`${this.base}/admin/players/${playerId}/price?value=${priceInUnits}`, {});
+  }
+
+  adminUpdatePlayer(playerId: number, patch: { position?: string; price?: number }): Observable<any> {
+    return this.http.patch(`${this.base}/admin/players/${playerId}`, patch);
   }
 
   adminBulkUploadUsers(file: File): Observable<any> {

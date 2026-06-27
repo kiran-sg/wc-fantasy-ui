@@ -613,7 +613,44 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
               <option value="MID">MID</option>
               <option value="FWD">FWD</option>
             </select>
+            <select class="pp-pos-filter" [(ngModel)]="ppSort" (ngModelChange)="filterPlayers()">
+              <option value="team">Sort: Team</option>
+              <option value="name">Sort: Name</option>
+              <option value="price_asc">Sort: Price ↑</option>
+              <option value="price_desc">Sort: Price ↓</option>
+            </select>
+            @if (!showAddPlayer()) {
+              <button class="pp-add-open-btn" (click)="showAddPlayer.set(true)">+ Add Player</button>
+            }
           </div>
+
+          @if (showAddPlayer()) {
+            <div class="pp-add-form">
+              <input class="pp-add-input" placeholder="Player name *" [(ngModel)]="ppNewName">
+              <select class="pp-add-select" [(ngModel)]="ppNewPos">
+                <option value="">Position *</option>
+                <option value="GK">GK</option>
+                <option value="DEF">DEF</option>
+                <option value="MID">MID</option>
+                <option value="FWD">FWD</option>
+              </select>
+              <select class="pp-add-select pp-add-team" [(ngModel)]="ppNewTeamId">
+                <option value="">Team *</option>
+                @for (t of allTeams(); track t.id) {
+                  <option [value]="t.id">{{ t.name }}</option>
+                }
+              </select>
+              <input class="pp-add-input pp-add-price" type="number" step="500000" min="1000000"
+                placeholder="Price (e.g. 6000000)" [(ngModel)]="ppNewPrice">
+              <div class="pp-add-actions">
+                <button class="pp-save-btn" [disabled]="!ppNewName.trim() || !ppNewPos || !ppNewTeamId || ppAddSaving()" (click)="addPpPlayer()">
+                  @if (ppAddSaving()) { <mat-spinner diameter="12" style="display:inline-block"></mat-spinner> }
+                  @else { Save }
+                </button>
+                <button class="pp-cancel-btn" (click)="showAddPlayer.set(false)">Cancel</button>
+              </div>
+            </div>
+          }
 
           <div class="pp-table">
             <div class="pp-header">
@@ -628,7 +665,16 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
                 <span class="pp-col pp-name">{{ p.name }}</span>
                 <span class="pp-col pp-team">{{ p.team?.name }}</span>
                 <span class="pp-col pp-pos">
-                  <span class="pp-pos-badge" [style.background]="ppPosColor(p.position)">{{ p.position }}</span>
+                  @if (ppEditId() === p.id) {
+                    <select class="pp-pos-edit" [(ngModel)]="ppEditPos">
+                      <option value="GK">GK</option>
+                      <option value="DEF">DEF</option>
+                      <option value="MID">MID</option>
+                      <option value="FWD">FWD</option>
+                    </select>
+                  } @else {
+                    <span class="pp-pos-badge" [style.background]="ppPosColor(p.position)">{{ p.position }}</span>
+                  }
                 </span>
                 <span class="pp-col pp-price">
                   @if (ppEditId() === p.id) {
@@ -977,6 +1023,7 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
     .pp-action { width: 100px; justify-content: flex-end; gap: 4px; }
     .pp-pos-badge { padding: 2px 7px; border-radius: 4px; color: #fff; font-size: 10px; font-weight: 900; }
     .pp-price-input { width: 80px; padding: 4px 6px; border: 1.5px solid #3f51b5; border-radius: 6px; font-size: 12px; font-weight: 700; text-align: right; outline: none; }
+    .pp-pos-edit { padding: 3px 5px; border: 1.5px solid #3f51b5; border-radius: 6px; font-size: 11px; font-weight: 700; outline: none; background: #fff; cursor: pointer; width: 54px; }
     .pp-edit-btn   { padding: 4px 10px; font-size: 11px; font-weight: 700; background: #e8eaf6; color: #3f51b5; border: 1px solid #c5cae9; border-radius: 6px; cursor: pointer; }
     .pp-edit-btn:hover { background: #c5cae9; }
     .pp-save-btn   { padding: 4px 10px; font-size: 12px; font-weight: 700; background: #1b5e20; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
@@ -986,6 +1033,15 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
     .pp-del-btn:hover:not(:disabled) { opacity: 1; background: #ffebee; }
     .pp-del-btn:disabled { opacity: 0.3; cursor: not-allowed; }
     .pp-empty { padding: 20px; text-align: center; color: #999; font-size: 13px; }
+    .pp-add-open-btn { padding: 7px 14px; font-size: 12px; font-weight: 700; background: #1a237e; color: #fff; border: none; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+    .pp-add-open-btn:hover { background: #283593; }
+    .pp-add-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 12px; background: #f5f7ff; border: 1px solid #c5cae9; border-radius: 10px; margin-bottom: 12px; }
+    .pp-add-input { padding: 7px 10px; border: 1px solid #c5cae9; border-radius: 6px; font-size: 12px; outline: none; background: #fff; min-width: 160px; }
+    .pp-add-input:focus { border-color: #1a237e; }
+    .pp-add-select { padding: 7px 10px; border: 1px solid #c5cae9; border-radius: 6px; font-size: 12px; outline: none; background: #fff; cursor: pointer; }
+    .pp-add-team { min-width: 160px; }
+    .pp-add-price { width: 140px; min-width: unset; }
+    .pp-add-actions { display: flex; gap: 6px; }
     .pp-msg { margin-top: 10px; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; background: #f1f8e9; color: #2e7d32; }
     .pp-msg.pp-err { background: #ffebee; color: #c62828; }
   `]
@@ -1356,7 +1412,10 @@ export class AdminScoresComponent implements OnInit {
   }
 
   onTabChange(e: MatTabChangeEvent) {
-    if (e.index === 4 && this.allPpPlayers().length === 0) this.loadPpPlayers();
+    if (e.index === 4) {
+      if (this.allPpPlayers().length === 0) this.loadPpPlayers();
+      if (this.allTeams().length === 0) this.api.getTeams().subscribe(t => this.allTeams.set(t));
+    }
   }
 
   // ── Player Pool ─────────────────────────────────────────────────────────────
@@ -1364,12 +1423,23 @@ export class AdminScoresComponent implements OnInit {
   ppFiltered    = signal<any[]>([]);
   ppSearch      = '';
   ppPos         = '';
+  ppSort        = 'team';
   ppEditId      = signal<number | null>(null);
   ppEditPrice   = 0;
+  ppEditPos     = '';
   ppSaving      = signal(false);
   ppDeleting    = signal<number | null>(null);
   ppMsg         = signal('');
   ppMsgErr      = signal(false);
+
+  // Add player form
+  showAddPlayer  = signal(false);
+  ppNewName      = '';
+  ppNewPos       = '';
+  ppNewTeamId    = '';
+  ppNewPrice     = 6000000;
+  ppAddSaving    = signal(false);
+  allTeams       = signal<any[]>([]);
 
   loadPpPlayers() {
     this.api.getAllPlayers().subscribe({ next: players => { this.allPpPlayers.set(players); this.filterPlayers(); } });
@@ -1381,13 +1451,21 @@ export class AdminScoresComponent implements OnInit {
     let list = this.allPpPlayers();
     if (pos) list = list.filter(p => p.position === pos);
     if (q)   list = list.filter(p => p.name.toLowerCase().includes(q) || p.team?.name?.toLowerCase().includes(q));
-    list = [...list].sort((a, b) => (a.team?.name ?? '').localeCompare(b.team?.name ?? '') || a.name.localeCompare(b.name));
+    list = [...list].sort((a, b) => {
+      switch (this.ppSort) {
+        case 'name':       return a.name.localeCompare(b.name);
+        case 'price_asc':  return (a.price ?? 0) - (b.price ?? 0);
+        case 'price_desc': return (b.price ?? 0) - (a.price ?? 0);
+        default:           return (a.team?.name ?? '').localeCompare(b.team?.name ?? '') || a.name.localeCompare(b.name);
+      }
+    });
     this.ppFiltered.set(list);
   }
 
   startPpEdit(p: any) {
     this.ppEditId.set(p.id);
     this.ppEditPrice = p.price ?? 0;
+    this.ppEditPos = p.position ?? '';
     this.ppMsg.set('');
   }
 
@@ -1396,16 +1474,17 @@ export class AdminScoresComponent implements OnInit {
       this.ppMsg.set('Price must be at least 1,000,000'); this.ppMsgErr.set(true); return;
     }
     this.ppSaving.set(true);
-    this.api.adminUpdatePlayerPrice(p.id, this.ppEditPrice).subscribe({
-      next: () => {
+    this.api.adminUpdatePlayer(p.id, { position: this.ppEditPos, price: this.ppEditPrice }).subscribe({
+      next: (res) => {
         this.ppSaving.set(false);
         this.ppEditId.set(null);
         p.price = this.ppEditPrice;
-        this.ppMsg.set(`✅ ${p.name} price updated to ${this.fmtM(this.ppEditPrice)}`);
+        p.position = this.ppEditPos;
+        this.ppMsg.set(`✅ ${p.name} updated`);
         this.ppMsgErr.set(false);
         this.filterPlayers();
       },
-      error: () => { this.ppSaving.set(false); this.ppMsg.set('Failed to update price'); this.ppMsgErr.set(true); }
+      error: () => { this.ppSaving.set(false); this.ppMsg.set('Failed to update player'); this.ppMsgErr.set(true); }
     });
   }
 
@@ -1424,6 +1503,30 @@ export class AdminScoresComponent implements OnInit {
       error: err => {
         this.ppDeleting.set(null);
         this.ppMsg.set('❌ ' + (err?.error?.error || 'Delete failed'));
+        this.ppMsgErr.set(true);
+      }
+    });
+  }
+
+  addPpPlayer() {
+    if (!this.ppNewName.trim() || !this.ppNewPos || !this.ppNewTeamId) return;
+    this.ppAddSaving.set(true);
+    this.ppMsg.set('');
+    this.api.adminCreatePlayer(this.ppNewName.trim(), this.ppNewPos, +this.ppNewTeamId, this.ppNewPrice).subscribe({
+      next: res => {
+        this.ppAddSaving.set(false);
+        const team = this.allTeams().find(t => t.id === +this.ppNewTeamId);
+        const newPlayer = { id: res.id, name: res.name, position: res.position, team, price: this.ppNewPrice };
+        this.allPpPlayers.update(list => [...list, newPlayer]);
+        this.filterPlayers();
+        this.ppMsg.set(`✅ ${res.name} added`);
+        this.ppMsgErr.set(false);
+        this.ppNewName = ''; this.ppNewPos = ''; this.ppNewTeamId = ''; this.ppNewPrice = 6000000;
+        this.showAddPlayer.set(false);
+      },
+      error: err => {
+        this.ppAddSaving.set(false);
+        this.ppMsg.set('❌ ' + (err?.error?.error || 'Failed to add player'));
         this.ppMsgErr.set(true);
       }
     });
