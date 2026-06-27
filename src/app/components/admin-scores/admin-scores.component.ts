@@ -6,7 +6,6 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTableModule } from '@angular/material/table';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatExpansionModule } from '@angular/material/expansion';
-import { MatTabsModule, MatTabChangeEvent } from '@angular/material/tabs';
 import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -22,7 +21,7 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
   standalone: true,
   imports: [
     MatCardModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule,
-    MatTableModule, MatChipsModule, MatExpansionModule, MatTabsModule,
+    MatTableModule, MatChipsModule, MatExpansionModule,
     MatSelectModule, MatFormFieldModule, MatInputModule, MatAutocompleteModule,
     FormsModule, ReactiveFormsModule, UpperCasePipe, PointsGuideComponent
   ],
@@ -34,12 +33,22 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
       </div>
     }
 
-    <h3 class="page-title">⚡ Admin Panel</h3>
+    <div class="admin-header">
+      <h3 class="page-title">⚡ Admin Panel</h3>
+      <div class="admin-nav">
+        @for (item of adminTabs; track item.key) {
+          <button class="nav-item" [class.nav-active]="activeTab() === item.key" (click)="setTab(item.key)" [title]="item.label">
+            <span class="nav-icon">{{ item.icon }}</span>
+            <span class="nav-label">{{ item.label }}</span>
+          </button>
+        }
+      </div>
+    </div>
 
-    <mat-tab-group class="admin-tabs" animationDuration="150ms" (selectedTabChange)="onTabChange($event)">
+    <div class="admin-content">
 
-      <!-- ═══════════════════ TAB 1: SCORE PANEL ═══════════════════ -->
-      <mat-tab label="📊 Score Panel">
+      <!-- ═══════════════════ SCORE PANEL ═══════════════════ -->
+      @if (activeTab() === 'scores') {
         <!-- DATA SYNC -->
         <mat-card class="sync-card" appearance="outlined">
           <div class="sync-title">🔄 Data Sync</div>
@@ -267,17 +276,17 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
             }
           </mat-card>
         }
-      </mat-tab>
+      }
 
-      <!-- ═══════════════════ TAB 3: POINTS GUIDE ═══════════════════ -->
-      <mat-tab label="⭐ Points Guide">
+      <!-- ═══════════════════ POINTS GUIDE ═══════════════════ -->
+      @if (activeTab() === 'guide') {
         <div style="padding-top:16px">
           <app-points-guide [collapsible]="false" [compact]="false" />
         </div>
-      </mat-tab>
+      }
 
-      <!-- ═══════════════════ TAB 2: USER SQUADS ═══════════════════ -->
-      <mat-tab label="👥 User Squads">
+      <!-- ═══════════════════ USER SQUADS ═══════════════════ -->
+      @if (activeTab() === 'users') {
         <div class="squads-browser">
 
           <div class="sq-layout">
@@ -537,10 +546,10 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
 
           </div>
         </div>
-      </mat-tab>
+      }
 
-      <!-- ═══════════════════ TAB 4: ROUND CONFIG ═══════════════════ -->
-      <mat-tab label="⚙️ Round Rules">
+      <!-- ═══════════════════ ROUND CONFIG ═══════════════════ -->
+      @if (activeTab() === 'rounds') {
         <div class="rc-wrap">
           <p class="subtitle">Edit transfer window rules per round. Changes take effect immediately — no redeploy needed.</p>
 
@@ -600,9 +609,10 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
             }
           }
         </div>
-      </mat-tab>
+      }
 
-      <mat-tab label="⚽ Player Pool">
+      <!-- ═══════════════════ PLAYER POOL ═══════════════════ -->
+      @if (activeTab() === 'players') {
         <div class="pp-wrap">
           <div class="pp-controls">
             <input class="pp-search" placeholder="Search player or team…" [(ngModel)]="ppSearch" (ngModelChange)="filterPlayers()">
@@ -613,12 +623,9 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
               <option value="MID">MID</option>
               <option value="FWD">FWD</option>
             </select>
-            <select class="pp-pos-filter" [(ngModel)]="ppSort" (ngModelChange)="filterPlayers()">
-              <option value="team">Sort: Team</option>
-              <option value="name">Sort: Name</option>
-              <option value="price_asc">Sort: Price ↑</option>
-              <option value="price_desc">Sort: Price ↓</option>
-            </select>
+            <button class="pp-elim-toggle" [class.pp-elim-on]="ppShowEliminated()" (click)="ppShowEliminated.update(v => !v); filterPlayers()">
+              {{ ppShowEliminated() ? '👁 Hide Eliminated' : '🚫 Show Eliminated' }}
+            </button>
             @if (!showAddPlayer()) {
               <button class="pp-add-open-btn" (click)="showAddPlayer.set(true)">+ Add Player</button>
             }
@@ -654,15 +661,21 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
 
           <div class="pp-table">
             <div class="pp-header">
-              <span class="pp-col pp-name">Player</span>
-              <span class="pp-col pp-team">Team</span>
+              <span class="pp-col pp-name pp-sortable" (click)="setPpSort('name')">Player {{ ppSortIcon('name') }}</span>
+              <span class="pp-col pp-team pp-sortable" (click)="setPpSort('team')">Team {{ ppSortIcon('team') }}</span>
               <span class="pp-col pp-pos">Pos</span>
-              <span class="pp-col pp-price">Price</span>
+              <span class="pp-col pp-price pp-sortable" (click)="setPpSort('price')">Price {{ ppSortIcon('price') }}</span>
+              <span class="pp-col pp-pts pp-sortable" (click)="setPpSort('pts')">Pts {{ ppSortIcon('pts') }}</span>
               <span class="pp-col pp-action"></span>
             </div>
             @for (p of ppFiltered(); track p.id) {
               <div class="pp-row">
-                <span class="pp-col pp-name">{{ p.name }}</span>
+                <span class="pp-col pp-name">
+                  {{ p.name }}
+                  @if (p.team?.eliminated) {
+                    <span class="pp-elim-badge" title="Team eliminated">✕</span>
+                  }
+                </span>
                 <span class="pp-col pp-team">{{ p.team?.name }}</span>
                 <span class="pp-col pp-pos">
                   @if (ppEditId() === p.id) {
@@ -684,6 +697,7 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
                     {{ fmtM(p.price) }}
                   }
                 </span>
+                <span class="pp-col pp-pts">{{ ppPlayerPoints()[p.id] ?? 0 }}</span>
                 <span class="pp-col pp-action">
                   @if (ppEditId() === p.id) {
                     <button class="pp-save-btn" (click)="savePpPrice(p)"
@@ -708,9 +722,61 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
             <div class="pp-msg" [class.pp-err]="ppMsgErr()">{{ ppMsg() }}</div>
           }
         </div>
-      </mat-tab>
+      }
 
-    </mat-tab-group>
+      <!-- ═══════════════════ TEAMS ═══════════════════ -->
+      @if (activeTab() === 'teams') {
+        <div class="pp-wrap">
+          <div class="pp-controls">
+            <input class="pp-search" placeholder="Search team…" [(ngModel)]="taSearch" (ngModelChange)="filterTeams()">
+          </div>
+          @if (teamsAdminLoading()) {
+            <div class="pp-empty">Loading teams…</div>
+          } @else {
+            <div class="teams-admin-table">
+              <div class="ta-header">
+                <span class="ta-col ta-name pp-sortable" (click)="setTaSort('name')">Team {{ taSortIcon('name') }}</span>
+                <span class="ta-col ta-code pp-sortable" (click)="setTaSort('code')">Code {{ taSortIcon('code') }}</span>
+                <span class="ta-col ta-group pp-sortable" (click)="setTaSort('group')">Group {{ taSortIcon('group') }}</span>
+                <span class="ta-col ta-status pp-sortable" (click)="setTaSort('status')">Status {{ taSortIcon('status') }}</span>
+                <span class="ta-col ta-action"></span>
+              </div>
+              @for (t of taFiltered(); track t.id) {
+                <div class="ta-row" [class.ta-eliminated]="t.eliminated">
+                  <span class="ta-col ta-name">
+                    {{ t.name }}
+                    @if (t.eliminated) {
+                      <span class="ta-elim-tag">OUT</span>
+                    }
+                  </span>
+                  <span class="ta-col ta-code">{{ t.code }}</span>
+                  <span class="ta-col ta-group">{{ t.group ?? '—' }}</span>
+                  <span class="ta-col ta-status">
+                    @if (t.eliminated) {
+                      <span class="ta-status-badge ta-out">Eliminated</span>
+                    } @else {
+                      <span class="ta-status-badge ta-in">Active</span>
+                    }
+                  </span>
+                  <span class="ta-col ta-action">
+                    <button class="ta-toggle-btn" [class.ta-toggle-out]="t.eliminated"
+                      [disabled]="teamToggleSaving() === t.id"
+                      (click)="toggleEliminated(t)">
+                      @if (teamToggleSaving() === t.id) {
+                        <mat-spinner diameter="12" style="display:inline-block"></mat-spinner>
+                      } @else {
+                        {{ t.eliminated ? 'Mark Active' : 'Mark Eliminated' }}
+                      }
+                    </button>
+                  </span>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
+
+    </div>
   `,
   styles: [`
     /* ── General ── */
@@ -720,9 +786,25 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
     .overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.55); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:9999; }
     .overlay p { color:#fff; margin-top:14px; font-size:15px; font-weight:500; }
 
-    /* ── Tabs ── */
-    .admin-tabs { margin-top: 4px; }
-    ::ng-deep .admin-tabs .mat-mdc-tab-body-wrapper { padding-top: 16px; }
+    /* ── Admin header + nav ── */
+    .admin-header { margin-bottom: 12px; }
+    .admin-nav {
+      display: flex; gap: 6px; flex-wrap: wrap;
+      background: #f0f2ff; border: 1px solid #dde0f0; border-radius: 14px;
+      padding: 6px; margin-top: 10px;
+    }
+    .nav-item {
+      display: flex; align-items: center; gap: 5px;
+      padding: 8px 14px; border-radius: 10px; border: none;
+      background: transparent; cursor: pointer; font-size: 13px;
+      font-weight: 600; color: #555; transition: background .12s, color .12s;
+      white-space: nowrap;
+    }
+    .nav-item:hover { background: #e8eaf6; color: #1a237e; }
+    .nav-active { background: #1a237e !important; color: #fff !important; }
+    .nav-icon { font-size: 15px; }
+    .nav-label { font-size: 12px; }
+    .admin-content { padding-bottom: 32px; }
     ::ng-deep .stats-scroll .mat-mdc-header-row { position: sticky; top: 0; z-index: 2; background: #fff; }
 
     /* ── Sync card ── */
@@ -955,23 +1037,61 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
     .x2-tag { font-size: 9px; font-weight: 800; background: #f9a825; color: #fff; padding: 1px 4px; border-radius: 3px; }
 
     /* ── Mobile responsive ── */
-    @media (max-width: 768px) {
+    @media (max-width: 600px) {
+      .page-title { font-size: 16px; margin-bottom: 6px; }
+      .admin-nav { gap: 4px; padding: 4px; border-radius: 10px; }
+      .nav-item { padding: 7px 10px; }
+      .nav-label { display: none; }
+      .nav-icon { font-size: 18px; }
+
+      /* Squads */
       .sq-layout { flex-direction: column; gap: 10px; }
       .sq-user-panel { position: static; width: 100%; }
-      .sq-user-list { max-height: 220px; }
+      .sq-user-list { max-height: 200px; }
       .sq-detail-panel { width: 100%; }
+
+      /* Match cards */
       .match-card { padding: 10px 12px; }
-      .teams-row { gap: 8px; }
-      .team { font-size: 13px; }
+      .teams-row { gap: 6px; }
+      .team { font-size: 12px; }
       .actions-row { flex-direction: column; align-items: stretch; }
       .actions-row button { width: 100%; justify-content: center; }
       .stats-top-row { flex-direction: column; align-items: stretch; }
       .stats-filters { flex-wrap: wrap; }
       .stats-search-wrap .search-input { width: 100px; }
-      .sync-btns { flex-direction: column; }
-      .sync-btn { width: 100%; justify-content: center; }
-      .rc-header, .rc-row { grid-template-columns: 70px 1fr 1fr 1fr; font-size: 11px; }
+
+      /* Sync buttons: 2-column grid on mobile */
+      .sync-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+      .sync-btn { width: 100%; justify-content: center; font-size: 11px !important; }
+
+      /* Round config — hide wide cols, scroll */
+      .rc-table { overflow-x: auto; }
+      .rc-header, .rc-row { grid-template-columns: 60px 52px 52px 52px 52px 90px; font-size: 10px; }
       .rc-col-wide, .rc-tz { display: none; }
+      .rc-actions { flex-direction: column; gap: 3px; }
+      .rc-edit-btn, .rc-save-btn, .rc-cancel-btn { padding: 3px 8px; font-size: 10px; }
+
+      /* Player pool — hide team col on very small, make table scroll */
+      .pp-table { overflow-x: auto; min-width: 0; }
+      .pp-team { display: none; }
+      .pp-name { flex: 3; }
+      .pp-price { width: 72px; }
+      .pp-pts { width: 36px; }
+      .pp-action { width: 80px; }
+      .pp-controls { gap: 6px; }
+      .pp-search { min-width: 0; flex: 1; }
+      .pp-add-form { flex-direction: column; }
+      .pp-add-input, .pp-add-select, .pp-add-team { width: 100%; min-width: 0; box-sizing: border-box; }
+
+      /* Teams tab */
+      .ta-code, .ta-group { display: none; }
+      .ta-name { flex: 2; }
+      .ta-action { width: 100px; }
+      .ta-toggle-btn { font-size: 10px; padding: 3px 7px; }
+
+      /* Points breakdown */
+      .pts-p-stats { display: none; }
+      .pts-match-name { font-size: 11px; }
     }
 
     /* ── Round Config tab ── */
@@ -1044,6 +1164,39 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
     .pp-add-actions { display: flex; gap: 6px; }
     .pp-msg { margin-top: 10px; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; background: #f1f8e9; color: #2e7d32; }
     .pp-msg.pp-err { background: #ffebee; color: #c62828; }
+
+    /* ── Sortable header ── */
+    .pp-sortable { cursor: pointer; user-select: none; gap: 4px; white-space: nowrap; }
+    .pp-sortable:hover { color: #1a237e; }
+
+    /* ── Teams admin tab ── */
+    .teams-admin-table { border: 1px solid #e0e0e0; border-radius: 10px; overflow: hidden; }
+    .ta-header { display: flex; align-items: center; padding: 8px 12px; background: #f5f5f5; border-bottom: 1px solid #e0e0e0; font-size: 11px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: .5px; }
+    .ta-row { display: flex; align-items: center; padding: 9px 12px; border-bottom: 1px solid #f0f0f0; font-size: 13px; transition: background .1s; }
+    .ta-row:last-child { border-bottom: none; }
+    .ta-row:hover { background: #fafafa; }
+    .ta-eliminated { background: #fff8f8 !important; opacity: 0.75; }
+    .ta-col { display: flex; align-items: center; }
+    .ta-name  { flex: 2; font-weight: 500; gap: 6px; }
+    .ta-code  { width: 60px; color: #555; font-size: 12px; font-weight: 700; }
+    .ta-group { width: 60px; color: #888; font-size: 12px; }
+    .ta-status { flex: 1; }
+    .ta-action { width: 130px; justify-content: flex-end; }
+    .ta-elim-tag { font-size: 9px; font-weight: 900; background: #ef4444; color: #fff; padding: 1px 5px; border-radius: 3px; }
+    .ta-status-badge { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; }
+    .ta-in  { background: #e8f5e9; color: #2e7d32; }
+    .ta-out { background: #ffebee; color: #c62828; }
+    .ta-toggle-btn { padding: 4px 10px; font-size: 11px; font-weight: 700; background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; border-radius: 6px; cursor: pointer; white-space: nowrap; }
+    .ta-toggle-btn.ta-toggle-out { background: #e8f5e9; color: #2e7d32; border-color: #a5d6a7; }
+    .ta-toggle-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* Eliminated badge in player pool */
+    .pp-elim-badge { font-size: 8px; font-weight: 900; background: #ef4444; color: #fff; padding: 1px 4px; border-radius: 3px; margin-left: 4px; }
+    .pp-elim-toggle { padding: 7px 12px; font-size: 11px; font-weight: 700; background: #fff3e0; color: #e65100; border: 1px solid #ffcc02; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+    .pp-elim-toggle.pp-elim-on { background: #fce4ec; color: #c62828; border-color: #ef9a9a; }
+
+    /* Points column in player pool */
+    .pp-pts { width: 48px; justify-content: flex-end; font-weight: 700; color: #3949ab; font-size: 12px; }
   `]
 })
 export class AdminScoresComponent implements OnInit {
@@ -1411,10 +1564,25 @@ export class AdminScoresComponent implements OnInit {
     this.uploadResult.set(null);
   }
 
-  onTabChange(e: MatTabChangeEvent) {
-    if (e.index === 4) {
+  activeTab = signal('scores');
+
+  adminTabs = [
+    { key: 'scores',  icon: '📊', label: 'Scores'  },
+    { key: 'users',   icon: '👥', label: 'Users'   },
+    { key: 'players', icon: '⚽', label: 'Players' },
+    { key: 'teams',   icon: '🌍', label: 'Teams'   },
+    { key: 'rounds',  icon: '⚙️', label: 'Rounds'  },
+    { key: 'guide',   icon: '⭐', label: 'Points'  },
+  ];
+
+  setTab(key: string) {
+    this.activeTab.set(key);
+    if (key === 'players') {
       if (this.allPpPlayers().length === 0) this.loadPpPlayers();
       if (this.allTeams().length === 0) this.api.getTeams().subscribe(t => this.allTeams.set(t));
+    }
+    if (key === 'teams') {
+      if (this.allTeamsAdmin().length === 0) this.loadTeamsAdmin();
     }
   }
 
@@ -1424,6 +1592,7 @@ export class AdminScoresComponent implements OnInit {
   ppSearch      = '';
   ppPos         = '';
   ppSort        = 'team';
+  ppSortDir     = 1; // 1 = asc, -1 = desc
   ppEditId      = signal<number | null>(null);
   ppEditPrice   = 0;
   ppEditPos     = '';
@@ -1440,24 +1609,117 @@ export class AdminScoresComponent implements OnInit {
   ppNewPrice     = 6000000;
   ppAddSaving    = signal(false);
   allTeams       = signal<any[]>([]);
+  ppShowEliminated = signal(false);
+  ppPlayerPoints   = signal<Record<number, number>>({});
+
+  // Teams management
+  allTeamsAdmin    = signal<any[]>([]);
+  taFiltered       = signal<any[]>([]);
+  teamsAdminLoading = signal(false);
+  teamToggleSaving  = signal<number | null>(null);
+  taSearch         = '';
+  taSort           = 'name';
+  taSortDir        = 1;
 
   loadPpPlayers() {
     this.api.getAllPlayers().subscribe({ next: players => { this.allPpPlayers.set(players); this.filterPlayers(); } });
+    this.loadPlayerPoints();
+    if (this.allTeams().length === 0) this.api.getTeams().subscribe(t => this.allTeams.set(t));
+  }
+
+  loadPlayerPoints() {
+    this.api.getPlayerPoints().subscribe({
+      next: pts => this.ppPlayerPoints.set(pts),
+      error: () => {}
+    });
+  }
+
+  loadTeamsAdmin() {
+    this.teamsAdminLoading.set(true);
+    this.api.getTeams().subscribe({
+      next: teams => { this.allTeamsAdmin.set(teams); this.teamsAdminLoading.set(false); this.filterTeams(); },
+      error: () => this.teamsAdminLoading.set(false)
+    });
+  }
+
+  filterTeams() {
+    const q = this.taSearch.trim().toLowerCase();
+    let list = this.allTeamsAdmin();
+    if (q) list = list.filter(t => t.name?.toLowerCase().includes(q) || t.code?.toLowerCase().includes(q) || t.group?.toLowerCase().includes(q));
+    list = [...list].sort((a, b) => {
+      // Eliminated always on top regardless of sort
+      if (a.eliminated !== b.eliminated) return a.eliminated ? -1 : 1;
+      let cmp = 0;
+      switch (this.taSort) {
+        case 'code':   cmp = (a.code ?? '').localeCompare(b.code ?? ''); break;
+        case 'group':  cmp = (a.group ?? '').localeCompare(b.group ?? ''); break;
+        case 'status': cmp = (a.eliminated === b.eliminated) ? 0 : (a.eliminated ? -1 : 1); break;
+        default:       cmp = (a.name ?? '').localeCompare(b.name ?? ''); break;
+      }
+      return cmp * this.taSortDir;
+    });
+    this.taFiltered.set(list);
+  }
+
+  setTaSort(col: string) {
+    if (this.taSort === col) this.taSortDir *= -1;
+    else { this.taSort = col; this.taSortDir = 1; }
+    this.filterTeams();
+  }
+
+  taSortIcon(col: string): string {
+    if (this.taSort !== col) return '↕';
+    return this.taSortDir === 1 ? '↑' : '↓';
+  }
+
+  setPpSort(col: string) {
+    if (this.ppSort === col) this.ppSortDir *= -1;
+    else { this.ppSort = col; this.ppSortDir = 1; }
+    this.filterPlayers();
+  }
+
+  ppSortIcon(col: string): string {
+    if (this.ppSort !== col) return '↕';
+    return this.ppSortDir === 1 ? '↑' : '↓';
+  }
+
+  toggleEliminated(team: any) {
+    const newVal = !team.eliminated;
+    this.teamToggleSaving.set(team.id);
+    this.api.adminSetTeamEliminated(team.id, newVal).subscribe({
+      next: () => {
+        team.eliminated = newVal;
+        this.teamToggleSaving.set(null);
+        // Update allTeams so player pool also reflects the change
+        this.allTeams.update(ts => ts.map(t => t.id === team.id ? { ...t, eliminated: newVal } : t));
+        this.allTeamsAdmin.update(ts => ts.map(t => t.id === team.id ? { ...t, eliminated: newVal } : t));
+        this.allPpPlayers.update(ps => ps.map(p =>
+          p.team?.id === team.id ? { ...p, team: { ...p.team, eliminated: newVal } } : p
+        ));
+        this.filterPlayers();
+        this.filterTeams();
+      },
+      error: () => this.teamToggleSaving.set(null)
+    });
   }
 
   filterPlayers() {
     const q = this.ppSearch.trim().toLowerCase();
     const pos = this.ppPos;
     let list = this.allPpPlayers();
+    if (!this.ppShowEliminated()) list = list.filter(p => !p.team?.eliminated);
     if (pos) list = list.filter(p => p.position === pos);
     if (q)   list = list.filter(p => p.name.toLowerCase().includes(q) || p.team?.name?.toLowerCase().includes(q));
+    const dir = this.ppSortDir;
     list = [...list].sort((a, b) => {
+      let cmp = 0;
       switch (this.ppSort) {
-        case 'name':       return a.name.localeCompare(b.name);
-        case 'price_asc':  return (a.price ?? 0) - (b.price ?? 0);
-        case 'price_desc': return (b.price ?? 0) - (a.price ?? 0);
-        default:           return (a.team?.name ?? '').localeCompare(b.team?.name ?? '') || a.name.localeCompare(b.name);
+        case 'name':  cmp = a.name.localeCompare(b.name); break;
+        case 'price': cmp = (a.price ?? 0) - (b.price ?? 0); break;
+        case 'pts':   cmp = (this.ppPlayerPoints()[a.id] ?? 0) - (this.ppPlayerPoints()[b.id] ?? 0); break;
+        default:      cmp = (a.team?.name ?? '').localeCompare(b.team?.name ?? '') || a.name.localeCompare(b.name); break;
       }
+      return cmp * dir;
     });
     this.ppFiltered.set(list);
   }

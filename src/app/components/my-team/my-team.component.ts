@@ -118,6 +118,12 @@ const BENCH_ROW: SlotRef[] = [
         }
       </div>
     }
+    @if (squadEliminatedCount() > 0) {
+      <div class="hb-elim-warn">
+        <span class="hb-elim-icon">⚠️</span>
+        <span>{{ squadEliminatedCount() }} player{{ squadEliminatedCount() > 1 ? 's' : '' }} eliminated</span>
+      </div>
+    }
   </div>
 
   <!-- ═══════════════════ BODY ═══════════════════ -->
@@ -196,7 +202,13 @@ const BENCH_ROW: SlotRef[] = [
                 }
 
                 @if (getSlotPlayer(slot); as p) {
-                  <div class="p-card">
+                  <div class="p-card" [class.p-card-eliminated]="eliminatedPlayerIds().has(p.id)">
+                    @if (eliminatedPlayerIds().has(p.id)) {
+                      <div class="elim-overlay">
+                        <span class="elim-skull">💀</span>
+                        <span class="elim-text">OUT</span>
+                      </div>
+                    }
                     <div class="p-card-icons">
                       <button class="icon-btn minus-btn" (click)="$event.stopPropagation(); removeSlot(slot)" title="Remove">
                         <span class="icon-circle minus-circle">−</span>
@@ -241,7 +253,13 @@ const BENCH_ROW: SlotRef[] = [
               }
 
               @if (getSlotPlayer(slot); as p) {
-                <div class="p-card p-card-bench">
+                <div class="p-card p-card-bench" [class.p-card-eliminated]="eliminatedPlayerIds().has(p.id)">
+                  @if (eliminatedPlayerIds().has(p.id)) {
+                    <div class="elim-overlay">
+                      <span class="elim-skull">💀</span>
+                      <span class="elim-text">OUT</span>
+                    </div>
+                  }
                   <div class="bench-badge">SUB</div>
                   <div class="p-card-icons">
                     <button class="icon-btn minus-btn" (click)="$event.stopPropagation(); removeSlot(slot)" title="Remove">
@@ -529,6 +547,35 @@ const BENCH_ROW: SlotRef[] = [
       border-color: rgba(255,255,255,0.08);
       opacity: 0.82;
     }
+
+    /* ── Eliminated player card ── */
+    .p-card-eliminated {
+      border-color: #ef4444 !important;
+      box-shadow: 0 0 0 1px rgba(239,68,68,0.6), 0 0 8px rgba(239,68,68,0.3);
+    }
+    .p-card-eliminated .p-name-bar { color: #fca5a5; }
+    .p-card-eliminated .p-price-bar { background: #7f1d1d !important; }
+    .elim-overlay {
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(127,29,29,0.72);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      z-index: 5; border-radius: 5px; gap: 1px;
+      pointer-events: none;
+    }
+    .elim-skull { font-size: 14px; line-height: 1; }
+    .elim-text {
+      font-size: 7px; font-weight: 900; letter-spacing: 1.5px;
+      color: #fca5a5; text-transform: uppercase;
+    }
+
+    /* Header eliminated warning */
+    .hb-elim-warn {
+      display: flex; align-items: center; gap: 5px;
+      background: #450a0a; border: 1px solid #7f1d1d; border-radius: 8px;
+      padding: 5px 10px; color: #fca5a5; font-size: 11px; font-weight: 700;
+    }
+    .hb-elim-icon { font-size: 13px; }
+
     .bench-badge {
       position: absolute; top: 2px; left: 50%; transform: translateX(-50%);
       font-size: 6px; font-weight: 900; letter-spacing: 1px;
@@ -898,7 +945,7 @@ export class MyTeamComponent implements OnInit {
   filteredPool = computed(() => {
     const pos  = this.poolPos();
     const q    = this.poolSearch().toLowerCase().trim();
-    let list   = this.allPlayers().filter(p => p.position === pos);
+    let list   = this.allPlayers().filter(p => p.position === pos && !p.team?.eliminated);
     if (q) list = list.filter(p => p.name.toLowerCase().includes(q) || p.team.name.toLowerCase().includes(q));
     const sort = this.sortBy();
     list = [...list]; // avoid mutating source
@@ -909,6 +956,17 @@ export class MyTeamComponent implements OnInit {
     else if (sort === 'name_asc')   list.sort((a, b) => a.name.localeCompare(b.name));
     else if (sort === 'name_desc')  list.sort((a, b) => b.name.localeCompare(a.name));
     return list;
+  });
+
+  eliminatedPlayerIds = computed(() => {
+    const ids = new Set<number>();
+    this.allPlayers().forEach(p => { if (p.team?.eliminated) ids.add(p.id); });
+    return ids;
+  });
+
+  squadEliminatedCount = computed(() => {
+    const elim = this.eliminatedPlayerIds();
+    return [...this.allPickedIds()].filter(id => elim.has(id)).length;
   });
 
   windowOpen = computed(() => {

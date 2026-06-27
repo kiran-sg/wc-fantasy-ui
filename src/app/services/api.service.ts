@@ -164,6 +164,10 @@ export class ApiService {
     return this.http.delete(`${this.base}/admin/players/${playerId}`);
   }
 
+  adminSetTeamEliminated(teamId: number, eliminated: boolean): Observable<any> {
+    return this.http.patch(`${this.base}/admin/teams/${teamId}/eliminated`, { eliminated });
+  }
+
   adminUpdatePlayerPrice(playerId: number, priceInUnits: number): Observable<any> {
     return this.http.patch(`${this.base}/admin/players/${playerId}/price?value=${priceInUnits}`, {});
   }

@@ -4,6 +4,7 @@ export interface Team {
   code: string;
   group: string;
   flagUrl: string;
+  eliminated?: boolean;
 }
 
 export interface Player {
