@@ -59,6 +59,10 @@ export class ApiService {
     return this.http.get<AppUser[]>(`${this.base}/leaderboard`);
   }
 
+  adminGetAllUsers(): Observable<AppUser[]> {
+    return this.http.get<AppUser[]>(`${this.base}/admin/users`);
+  }
+
   // Persistent team endpoints
   getMyTeam(userId: number): Observable<UserTeam> {
     return this.http.get<UserTeam>(`${this.base}/team?userId=${userId}`);

@@ -289,7 +289,7 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
       @if (activeTab() === 'users') {
         <div class="squads-browser">
 
-          <div class="sq-layout">
+          <div class="sq-layout" [class.mobile-show-squad]="squadMobileView() === 'pitch'">
 
             <!-- LEFT: user list -->
             <div class="sq-user-panel">
@@ -390,16 +390,21 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
                 @for (u of filteredUsers(); track u.id) {
                   <div class="sq-user-row"
                     [class.sq-user-active]="selectedUserId() === u.id"
+                    [class.sq-user-no-squad]="noSquadUserId() === u.id"
                     (click)="selectUser(u)">
                     <div class="sq-u-avatar">{{ u.displayName[0] || u.username[0] | uppercase }}</div>
                     <div class="sq-u-info">
                       <span class="sq-u-name">{{ u.displayName || u.username }}</span>
-                      <span class="sq-u-sub">
-                        {{ u.username }}
-                        @if (u.location && locEditId() !== u.id) {
-                          <span class="sq-u-loc" [class.tvm]="u.location === 'TVM'" [class.pune]="u.location === 'Pune'">{{ u.location }}</span>
-                        }
-                      </span>
+                      @if (noSquadUserId() === u.id) {
+                        <span class="sq-u-no-squad-msg">No squad saved yet</span>
+                      } @else {
+                        <span class="sq-u-sub">
+                          {{ u.username }}
+                          @if (u.location && locEditId() !== u.id) {
+                            <span class="sq-u-loc" [class.tvm]="u.location === 'TVM'" [class.pune]="u.location === 'Pune'">{{ u.location }}</span>
+                          }
+                        </span>
+                      }
                     </div>
                     <span class="sq-u-pts">{{ u.totalPoints }} pts</span>
                   </div>
@@ -410,7 +415,7 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
               </div>
             </div>
 
-            <!-- RIGHT: squad detail -->
+            <!-- RIGHT: squad detail (pitch view) -->
             <div class="sq-detail-panel">
               @if (!selectedUserId()) {
                 <div class="empty-state">
@@ -418,46 +423,97 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
                   <p>Select a user to view their team</p>
                 </div>
               } @else if (selectedUserTeam() === null && !globalLoading()) {
-                <div class="empty-state small">
-                  <mat-icon>inbox</mat-icon>
-                  <p>This user hasn't saved a team yet.</p>
+                <div class="sq-no-squad-wrap">
+                  <div class="empty-state small">
+                    <mat-icon>inbox</mat-icon>
+                    <p>No squad saved yet.</p>
+                  </div>
+                  <!-- Mobile: back to users -->
+                  <div class="sq-back-bar">
+                    <button class="sq-back-btn" (click)="squadMobileView.set('users')">⬅ Back to Users</button>
+                  </div>
                 </div>
               } @else if (selectedUserTeam(); as team) {
-                <div class="single-squad">
+                <div class="sq-pitch-wrap">
+
+                  <!-- User header -->
                   <div class="sq-single-header">
-                    <div class="user-avatar">{{ team.user.displayName[0] || team.user.username[0] | uppercase }}</div>
+                    <div class="user-avatar">{{ (team.user.displayName || team.user.username)[0] | uppercase }}</div>
                     <div class="user-info">
                       <span class="user-name">{{ team.user.displayName || team.user.username }}</span>
                       <span class="captain-info">
-                        C: {{ team.captain.name || '—' }}
-                        @if (team.viceCaptain.name) { · VC: {{ team.viceCaptain.name }} }
+                        C: {{ team.captain?.name || '—' }}
+                        @if (team.viceCaptain?.name) { · VC: {{ team.viceCaptain.name }} }
                       </span>
                     </div>
                     <div class="sq-points">
                       <span class="pts-big">{{ team.user.totalPoints }}</span>
                       <span class="pts-lbl">pts</span>
                     </div>
+                    <!-- display toggle -->
+                    <select class="sq-display-select" [(ngModel)]="sqPitchDisplay">
+                      <option value="price">Price</option>
+                      <option value="pts">Points</option>
+                    </select>
                   </div>
-                  <div class="sq-single-body">
-                    @for (pos of positions; track pos) {
-                      @let posPlayers = playersByPos([...(team.starters || []), ...(team.bench || [])], pos);
-                      @if (posPlayers.length > 0) {
-                        <div class="pos-group">
-                          <div class="pos-label-badge">{{ pos }}</div>
-                          <div class="pos-tokens">
-                            @for (p of posPlayers; track p.id) {
-                              <div class="player-tok"
-                                [class.tok-captain]="p.id === team.captain.id"
-                                [class.tok-vc]="p.id === team.viceCaptain.id">
-                                <span class="tok-name">{{ p.name }}</span>
-                                @if (p.id === team.captain.id) { <span class="tok-badge tok-c">C</span> }
-                                @if (p.id === team.viceCaptain.id) { <span class="tok-badge tok-vc">VC</span> }
+
+                  <!-- Pitch canvas -->
+                  <div class="sq-pitch">
+                    <div class="pitch-markings">
+                      <div class="pm halfway"></div>
+                      <div class="pm center-circle"></div>
+                      <div class="pm penalty-top"></div>
+                      <div class="pm penalty-bot"></div>
+                      <div class="pm goal-top"></div>
+                      <div class="pm goal-bot"></div>
+                    </div>
+
+                    @for (row of sqPitchRows(team); track $index) {
+                      <div class="pitch-row">
+                        @for (p of row; track p.id) {
+                          <div class="p-slot">
+                            <div class="p-card" [class.p-card-captain]="p.id === team.captain?.id" [class.p-card-vc]="p.id === team.viceCaptain?.id">
+                              <div class="p-card-icons ro-icons">
+                                <div class="cap-badges">
+                                  @if (p.id === team.captain?.id) { <span class="cap-icon c-icon">C</span> }
+                                  @if (p.id === team.viceCaptain?.id) { <span class="cap-icon vc-icon">V</span> }
+                                </div>
                               </div>
-                            }
+                              <div class="p-avatar filled-av" [style.--pc]="sqPosColor(p.position)"></div>
+                              <div class="p-name-bar">{{ sqShortName(p.name) }}</div>
+                              <div class="p-price-bar" [style.background]="sqPosColor(p.position)">
+                                {{ sqPitchDisplay === 'pts' ? (p.totalPoints ?? 0) + ' pts' : fmtM(p.price) }}
+                              </div>
+                            </div>
+                          </div>
+                        }
+                      </div>
+                    }
+                  </div>
+
+                  <!-- Bench strip -->
+                  <div class="sq-bench-strip">
+                    <div class="bench-strip-label">BENCH</div>
+                    <div class="bench-strip-slots">
+                      @for (p of (team.bench || []); track p.id) {
+                        <div class="p-slot is-bench">
+                          <div class="p-card p-card-bench" [class.p-card-captain]="p.id === team.captain?.id" [class.p-card-vc]="p.id === team.viceCaptain?.id">
+                            <div class="bench-badge">SUB</div>
+                            <div class="p-card-icons ro-icons">
+                              <div class="cap-badges">
+                                @if (p.id === team.captain?.id) { <span class="cap-icon c-icon">C</span> }
+                                @if (p.id === team.viceCaptain?.id) { <span class="cap-icon vc-icon">V</span> }
+                              </div>
+                            </div>
+                            <div class="p-avatar filled-av" [style.--pc]="sqPosColor(p.position)"></div>
+                            <div class="p-name-bar">{{ sqShortName(p.name) }}</div>
+                            <div class="p-price-bar" [style.background]="sqPosColor(p.position)">
+                              {{ sqPitchDisplay === 'pts' ? (p.totalPoints ?? 0) + ' pts' : fmtM(p.price) }}
+                            </div>
                           </div>
                         </div>
                       }
-                    }
+                    </div>
                   </div>
 
                   <!-- Points breakdown by match -->
@@ -491,8 +547,8 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
                             } @else {
                               <div class="pts-player-table">
                                 @for (s of breakdown; track s.player.id) {
-                                  @let isCap = s.player.id === team.captain.id;
-                                  @let isVC = s.player.id === team.viceCaptain.id;
+                                  @let isCap = s.player.id === team.captain?.id;
+                                  @let isVC = s.player.id === team.viceCaptain?.id;
                                   @let ppts = calcPoints(s);
                                   <div class="pts-player-row" [class.pts-row-cap]="isCap" [class.pts-row-vc]="isVC">
                                     <div class="pts-p-info">
@@ -540,6 +596,12 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
                       }
                     </div>
                   }
+
+                  <!-- Mobile: back to users -->
+                  <div class="sq-back-bar">
+                    <button class="sq-back-btn" (click)="squadMobileView.set('users')">⬅ Back to Users</button>
+                  </div>
+
                 </div>
               }
             </div>
@@ -898,6 +960,9 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
     .sq-user-row:last-child { border-bottom: none; }
     .sq-user-row:hover { background: #f5f7ff; }
     .sq-user-row.sq-user-active { background: #e8eaf6; }
+    .sq-user-row.sq-user-no-squad { background: #fff8e1; }
+    .sq-u-no-squad-msg { display: block; font-size: 11px; font-weight: 700; color: #e65100; animation: fade-in-out 3s ease forwards; }
+    @keyframes fade-in-out { 0%{opacity:0} 10%{opacity:1} 80%{opacity:1} 100%{opacity:0} }
     .sq-u-avatar { width: 32px; height: 32px; border-radius: 50%; background: #1a237e; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; }
     .sq-u-info { flex: 1; min-width: 0; }
     .sq-u-name { display: block; font-size: 13px; font-weight: 600; color: #1a1a1a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -950,6 +1015,65 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
 
     /* Squad detail panel */
     .sq-detail-panel { flex: 0 0 60%; min-width: 0; }
+
+    /* Pitch wrap */
+    .sq-pitch-wrap { background: #fff; border: 1px solid #e0e0e0; border-radius: 12px; overflow: hidden; }
+    .sq-display-select { margin-left: auto; background: #1d4ed8; color: #fff; border: 2px solid #3b82f6; border-radius: 8px; padding: 4px 10px; font-size: 11px; font-weight: 800; cursor: pointer; outline: none; }
+    .sq-display-select option { background: #1e2433; }
+
+    .sq-pitch {
+      background: #1a6b3a;
+      background-image: repeating-linear-gradient(0deg, transparent, transparent 48px, rgba(0,0,0,0.08) 48px, rgba(0,0,0,0.08) 49px);
+      position: relative; padding: 6px 4px 2px;
+      display: flex; flex-direction: column; justify-content: space-evenly; gap: 4px;
+      min-height: 340px;
+      border-bottom: 1px dashed rgba(255,255,255,0.15);
+    }
+    .sq-bench-strip { background: rgba(0,0,0,0.55); border-top: 1px dashed rgba(255,255,255,0.15); padding: 4px; }
+
+    /* Reuse my-team pitch classes inside admin */
+    .sq-pitch .pitch-markings { position: absolute; inset: 0; pointer-events: none; }
+    .sq-pitch .pm { position: absolute; }
+    .sq-pitch .halfway       { top: 48%; left: 5%; right: 5%; height: 1px; background: rgba(255,255,255,0.25); }
+    .sq-pitch .center-circle { top: 48%; left: 50%; width: 60px; height: 60px; border: 1px solid rgba(255,255,255,0.2); border-radius: 50%; transform: translate(-50%,-50%); }
+    .sq-pitch .penalty-top   { top: 0; left: 50%; width: 130px; height: 50px; border: 1px solid rgba(255,255,255,0.2); border-top: none; transform: translateX(-50%); }
+    .sq-pitch .penalty-bot   { bottom: 0; left: 50%; width: 130px; height: 50px; border: 1px solid rgba(255,255,255,0.2); border-bottom: none; transform: translateX(-50%); }
+    .sq-pitch .goal-top      { top: 0; left: 50%; width: 48px; height: 14px; border: 1px solid rgba(255,255,255,0.2); border-top: none; transform: translateX(-50%); }
+    .sq-pitch .goal-bot      { bottom: 0; left: 50%; width: 48px; height: 14px; border: 1px solid rgba(255,255,255,0.2); border-bottom: none; transform: translateX(-50%); }
+    .sq-pitch .pitch-row { display: flex; justify-content: center; align-items: center; gap: 4px; position: relative; z-index: 1; }
+
+    /* Player card (read-only, reuses my-team card styles) */
+    .sq-pitch .p-slot, .sq-bench-strip .p-slot { display: flex; flex-direction: column; align-items: center; width: 72px; flex-shrink: 0; }
+    .sq-bench-strip .p-slot .p-card { opacity: 0.85; }
+    .p-card-captain { outline: 2px solid #f59e0b !important; outline-offset: 1px; }
+    .p-card-vc { outline: 2px solid #7c3aed !important; outline-offset: 1px; }
+    .p-card {
+      width: 68px; background: #1e2433; border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 6px; display: flex; flex-direction: column; align-items: center;
+      padding: 0 0 3px; overflow: hidden; position: relative;
+    }
+    .p-card-bench { background: #141824; border-color: rgba(255,255,255,0.08); }
+    .ro-icons { width: 100%; display: flex; justify-content: flex-end; padding: 2px 3px 0; position: absolute; top: 0; right: 0; z-index: 2; }
+    .cap-badges { display: flex; gap: 2px; }
+    .cap-icon { width: 14px; height: 14px; border-radius: 50%; font-size: 7px; font-weight: 900; display: flex; align-items: center; justify-content: center; }
+    .c-icon  { background: #f59e0b; color: #000; }
+    .vc-icon { background: #7c3aed; color: #fff; }
+    .bench-badge { position: absolute; top: 2px; left: 50%; transform: translateX(-50%); font-size: 6px; font-weight: 900; letter-spacing: 1px; color: #6b7280; background: rgba(0,0,0,0.4); padding: 1px 4px; border-radius: 3px; z-index: 3; white-space: nowrap; }
+    .p-avatar { width: 42px; height: 42px; border-radius: 50%; background: #2a2d3e; border: 2px solid rgba(255,255,255,0.15); position: relative; overflow: hidden; margin-top: 14px; flex-shrink: 0; }
+    .p-avatar::before { content: ''; position: absolute; top: 7px; left: 50%; transform: translateX(-50%); width: 12px; height: 12px; background: rgba(255,255,255,0.7); border-radius: 50%; }
+    .p-avatar::after  { content: ''; position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%); width: 24px; height: 14px; background: rgba(255,255,255,0.7); border-radius: 12px 12px 0 0; }
+    .filled-av { background: #1a1d2e; border-color: var(--pc, rgba(255,255,255,0.25)); border-width: 2px; }
+    .filled-av::before { background: rgba(255,255,255,0.9); }
+    .filled-av::after  { background: rgba(255,255,255,0.9); }
+    .p-name-bar { width: 100%; text-align: center; color: #f3f4f6; font-size: 8.5px; font-weight: 700; padding: 2px 2px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .p-price-bar { width: calc(100% - 8px); text-align: center; color: #fff; font-size: 8px; font-weight: 800; padding: 1px 4px; border-radius: 3px; margin-top: 2px; letter-spacing: .3px; }
+    .bench-strip-label { text-align: center; color: rgba(255,255,255,0.35); font-size: 8px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 3px; }
+    .bench-strip-slots { display: flex; justify-content: center; gap: 6px; }
+
+    /* No squad / back bar */
+    .sq-no-squad-wrap { background: #fff; border: 1px solid #e0e0e0; border-radius: 12px; overflow: hidden; }
+    .sq-back-bar { display: none; padding: 8px 12px; background: #f5f5f5; border-top: 1px solid #e0e0e0; }
+    .sq-back-btn { width: 100%; padding: 10px; background: #1a237e; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 800; cursor: pointer; }
 
     /* Empty state */
     .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 24px; color: #9e9e9e; text-align: center; }
@@ -1044,11 +1168,46 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
       .nav-label { display: none; }
       .nav-icon { font-size: 18px; }
 
-      /* Squads */
-      .sq-layout { flex-direction: column; gap: 10px; }
-      .sq-user-panel { position: static; width: 100%; }
-      .sq-user-list { max-height: 200px; }
-      .sq-detail-panel { width: 100%; }
+      /* Squads — stays in flow, fills remaining screen below admin header */
+      /* 215px = 64px container-top + ~79px admin-header + 72px container-bottom */
+      .squads-browser {
+        height: calc(100dvh - 215px);
+        overflow: hidden;
+        display: flex; flex-direction: column;
+        padding-bottom: 0;
+      }
+      .sq-layout {
+        flex: 1; min-height: 0;
+        display: flex; flex-direction: column; overflow: hidden; gap: 0;
+      }
+      .sq-user-panel {
+        position: static; width: 100%; border-radius: 0; border: none;
+        flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden;
+      }
+      .sq-user-list { flex: 1; min-height: 0; overflow-y: auto; max-height: none; }
+      .sq-detail-panel { display: none; width: 100%; }
+
+      .sq-layout.mobile-show-squad .sq-user-panel { display: none; }
+      .sq-layout.mobile-show-squad .sq-detail-panel {
+        display: flex; flex-direction: column;
+        flex: 1; min-height: 0; overflow: hidden;
+      }
+      .sq-pitch-wrap {
+        flex: 1; min-height: 0;
+        display: flex; flex-direction: column; overflow: hidden;
+        border-radius: 0; border: none;
+      }
+      .sq-single-header { flex-shrink: 0; }
+      .sq-pitch { flex: 1; min-height: 0; }
+      .sq-bench-strip { flex-shrink: 0; }
+      .pts-breakdown { overflow-y: auto; max-height: 140px; }
+      .sq-back-bar { display: flex; flex-shrink: 0; }
+      .sq-no-squad-wrap {
+        flex: 1; min-height: 0; border-radius: 0; border: none;
+        display: flex; flex-direction: column; justify-content: space-between; overflow: hidden;
+      }
+      .sq-pitch .p-slot, .sq-bench-strip .p-slot { width: 62px; }
+      .sq-pitch .p-card, .sq-bench-strip .p-card { width: 58px; }
 
       /* Match cards */
       .match-card { padding: 10px 12px; }
@@ -1239,6 +1398,10 @@ export class AdminScoresComponent implements OnInit {
   userSearchQuery = signal('');
   locationFilter = signal<string | null>(null);
   positions = ['GK', 'DEF', 'MID', 'FWD'];
+  squadMobileView = signal<'users' | 'pitch'>('users');
+  sqPitchDisplay: 'price' | 'pts' = 'price';
+  noSquadUserId = signal<number | null>(null);
+  private noSquadTimer: any = null;
 
   // Add user form
   showAddUser = signal(false);
@@ -1485,7 +1648,7 @@ export class AdminScoresComponent implements OnInit {
   // ── Squads browser methods ───────────────────────────────────────
 
   loadUsers() {
-    this.api.getOverallLeaderboard().subscribe({
+    this.api.adminGetAllUsers().subscribe({
       next: users => this.allUsers.set(users),
       error: () => {}
     });
@@ -1577,6 +1740,9 @@ export class AdminScoresComponent implements OnInit {
 
   setTab(key: string) {
     this.activeTab.set(key);
+    if (key === 'users') {
+      if (this.allUsers().length === 0) this.loadUsers();
+    }
     if (key === 'players') {
       if (this.allPpPlayers().length === 0) this.loadPpPlayers();
       if (this.allTeams().length === 0) this.api.getTeams().subscribe(t => this.allTeams.set(t));
@@ -1832,6 +1998,10 @@ export class AdminScoresComponent implements OnInit {
     this.locEditDisplayName = '';
   }
 
+  private isMobile(): boolean {
+    return window.innerWidth <= 600;
+  }
+
   selectUser(u: AppUser) {
     this.selectedUserId.set(u.id);
     this.selectedUserTeam.set(null);
@@ -1841,8 +2011,20 @@ export class AdminScoresComponent implements OnInit {
     this.loadingMsg.set('Loading team...');
     this.api.getMyTeam(u.id).subscribe({
       next: team => {
-        this.selectedUserTeam.set(team);
         this.globalLoading.set(false);
+        if (!team) {
+          this.selectedUserTeam.set(null);
+          if (this.isMobile()) {
+            if (this.noSquadTimer) clearTimeout(this.noSquadTimer);
+            this.noSquadUserId.set(u.id);
+            this.noSquadTimer = setTimeout(() => this.noSquadUserId.set(null), 3000);
+          } else {
+            this.squadMobileView.set('pitch');
+          }
+          return;
+        }
+        this.selectedUserTeam.set(team);
+        this.squadMobileView.set('pitch');
         this.api.getMyTeamPoints(u.id).subscribe({
           next: pts => this.selectedUserMatchPoints.set(pts),
           error: () => {}
@@ -1900,6 +2082,32 @@ export class AdminScoresComponent implements OnInit {
 
   playersByPos(players: any[], pos: string): any[] {
     return (players || []).filter(p => p.position === pos);
+  }
+
+  sqPosColor(pos: string): string {
+    const map: Record<string, string> = { GK: '#f59e0b', DEF: '#10b981', MID: '#3b82f6', FWD: '#ef4444' };
+    return map[pos] ?? '#9ca3af';
+  }
+
+  sqShortName(name: string): string {
+    if (!name) return '';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return name.length > 9 ? name.slice(0, 8) + '.' : name;
+    return parts[parts.length - 1].length > 9
+      ? parts[parts.length - 1].slice(0, 8) + '.'
+      : parts[parts.length - 1];
+  }
+
+  sqPitchRows(team: any): any[][] {
+    const starters: any[] = team.starters || [];
+    const formation: string = team.formation || '4-4-2';
+    const parts = formation.split('-').map(Number);
+    const def = parts[0] ?? 4, mid = parts[1] ?? 4, fwd = parts[2] ?? 2;
+    const gks  = starters.filter(p => p.position === 'GK').slice(0, 1);
+    const defs = starters.filter(p => p.position === 'DEF').slice(0, def);
+    const mids = starters.filter(p => p.position === 'MID').slice(0, mid);
+    const fwds = starters.filter(p => p.position === 'FWD').slice(0, fwd);
+    return [gks, defs, mids, fwds].filter(r => r.length > 0);
   }
 
   avatarLetter(squad: any): string {
