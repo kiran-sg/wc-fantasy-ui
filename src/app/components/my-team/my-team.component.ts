@@ -818,9 +818,10 @@ export class MyTeamComponent implements OnInit {
     return id ? (this.allPlayers().find(p => p.id === id)?.name ?? null) : null;
   });
 
-  // Server-authoritative stage from roundStart; falls back to earliest upcoming match stage
+  // Server-authoritative stage from roundStart.
+  // Falls back to 'GROUP' (unlimited) — next match being R32 doesn't mean R32 rules are active yet.
   currentStage  = computed(() =>
-    this.activeRoundConfig()?.stage ?? this.nextMatch()?.stage ?? 'R32'
+    this.activeRoundConfig()?.stage ?? 'GROUP'
   );
   currentConfig = computed(() =>
     this.activeRoundConfig() ?? this.roundConfigs().find(c => c.stage === this.currentStage()) ?? null
