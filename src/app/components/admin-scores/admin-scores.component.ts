@@ -1168,37 +1168,67 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
       .nav-label { display: none; }
       .nav-icon { font-size: 18px; }
 
-      /* Squads — users list fills viewport height, pitch scrolls freely */
-      .squads-browser { padding-bottom: 0; }
+      /* On mobile the whole admin page is a fixed full-screen column below the navbar */
+      :host {
+        position: fixed !important;
+        top: 56px; left: 0; right: 0; bottom: 0;
+        display: flex !important; flex-direction: column;
+        overflow: hidden;
+        background: #fff;
+        padding: 8px 8px 0 !important;
+        box-sizing: border-box;
+      }
+      .admin-header { flex-shrink: 0; }
+      .admin-content {
+        flex: 1; min-height: 0;
+        overflow-y: auto;
+        padding-bottom: 0;
+      }
 
-      .sq-layout { flex-direction: column; gap: 0; }
+      /* When on users tab: admin-content becomes a flex column so squads fills it */
+      .admin-content:has(.squads-browser) {
+        display: flex; flex-direction: column; overflow: hidden;
+      }
 
-      /* Users panel: fixed height = remaining viewport, internal scroll */
+      /* Squads browser fills admin-content */
+      .squads-browser {
+        flex: 1; min-height: 0;
+        display: flex; flex-direction: column;
+        overflow: hidden; padding-bottom: 0;
+      }
+      .sq-layout {
+        flex: 1; min-height: 0;
+        display: flex; flex-direction: column;
+        overflow: hidden; gap: 0;
+      }
+
+      /* Users panel fills remaining height with internal scroll */
       .sq-user-panel {
         position: static; width: 100%; border-radius: 0; border: none;
-        height: calc(100dvh - 215px);
+        flex: 1; min-height: 0;
         display: flex; flex-direction: column; overflow: hidden;
       }
       .sq-user-list { flex: 1; min-height: 0; overflow-y: auto; max-height: none; }
 
-      /* Hide pitch panel by default */
+      /* Hide pitch by default */
       .sq-detail-panel { display: none; width: 100%; }
 
-      /* Squad view: hide users, show pitch — scrollable, no height cap */
+      /* Squad view: swap to pitch — block scroll container */
       .sq-layout.mobile-show-squad .sq-user-panel { display: none; }
-      .sq-layout.mobile-show-squad .sq-detail-panel { display: block; width: 100%; }
+      .sq-layout.mobile-show-squad .sq-detail-panel {
+        display: block;
+        flex: 1; min-height: 0; overflow-y: auto;
+      }
 
-      /* Pitch wrap: natural height, scrollable */
-      .sq-pitch-wrap { border-radius: 0; border: none; overflow: visible; }
+      /* Pitch wrap: natural height, room for sticky back btn */
+      .sq-pitch-wrap { border-radius: 0; border: none; padding-bottom: 0; }
       .sq-pitch { min-height: 320px; }
-      .sq-bench-strip { }
-      .pts-breakdown { }
 
-      /* Back button: sticky at bottom of viewport so always visible */
+      /* Back button: sticky inside the scroll container */
       .sq-back-bar {
         display: flex;
         position: sticky; bottom: 0; z-index: 10;
-        background: #f5f5f5; border-top: 1px solid #e0e0e0;
+        background: #f5f5f5; border-top: 2px solid #c5cae9;
       }
       .sq-no-squad-wrap { border-radius: 0; border: none; }
 
