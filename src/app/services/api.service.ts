@@ -156,6 +156,10 @@ export class ApiService {
     return this.http.post(`${this.base}/admin/users`, { username, displayName, location, isAdmin });
   }
 
+  adminDeletePlayer(playerId: number): Observable<any> {
+    return this.http.delete(`${this.base}/admin/players/${playerId}`);
+  }
+
   adminUpdatePlayerPrice(playerId: number, priceInUnits: number): Observable<any> {
     return this.http.patch(`${this.base}/admin/players/${playerId}/price?value=${priceInUnits}`, {});
   }

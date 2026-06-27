@@ -648,6 +648,7 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
                     <button class="pp-cancel-btn" (click)="ppEditId.set(null)">✕</button>
                   } @else {
                     <button class="pp-edit-btn" (click)="startPpEdit(p)">Edit</button>
+                    <button class="pp-del-btn" [disabled]="ppDeleting() === p.id" (click)="deletePpPlayer(p)" title="Delete player">🗑</button>
                   }
                 </span>
               </div>
@@ -981,6 +982,9 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
     .pp-save-btn   { padding: 4px 10px; font-size: 12px; font-weight: 700; background: #1b5e20; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
     .pp-save-btn:disabled { opacity: .5; cursor: not-allowed; }
     .pp-cancel-btn { padding: 4px 8px; font-size: 12px; background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; border-radius: 6px; cursor: pointer; }
+    .pp-del-btn { padding: 4px 7px; font-size: 13px; background: none; border: none; cursor: pointer; color: #e53935; opacity: 0.7; border-radius: 5px; transition: opacity .15s, background .15s; }
+    .pp-del-btn:hover:not(:disabled) { opacity: 1; background: #ffebee; }
+    .pp-del-btn:disabled { opacity: 0.3; cursor: not-allowed; }
     .pp-empty { padding: 20px; text-align: center; color: #999; font-size: 13px; }
     .pp-msg { margin-top: 10px; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; background: #f1f8e9; color: #2e7d32; }
     .pp-msg.pp-err { background: #ffebee; color: #c62828; }
@@ -1363,6 +1367,7 @@ export class AdminScoresComponent implements OnInit {
   ppEditId      = signal<number | null>(null);
   ppEditPrice   = 0;
   ppSaving      = signal(false);
+  ppDeleting    = signal<number | null>(null);
   ppMsg         = signal('');
   ppMsgErr      = signal(false);
 
@@ -1401,6 +1406,26 @@ export class AdminScoresComponent implements OnInit {
         this.filterPlayers();
       },
       error: () => { this.ppSaving.set(false); this.ppMsg.set('Failed to update price'); this.ppMsgErr.set(true); }
+    });
+  }
+
+  deletePpPlayer(p: any) {
+    if (!confirm(`Delete "${p.name}"?\nThis will permanently remove the player.`)) return;
+    this.ppDeleting.set(p.id);
+    this.ppMsg.set('');
+    this.api.adminDeletePlayer(p.id).subscribe({
+      next: () => {
+        this.ppDeleting.set(null);
+        this.allPpPlayers.update(list => list.filter(x => x.id !== p.id));
+        this.filterPlayers();
+        this.ppMsg.set(`✅ ${p.name} deleted`);
+        this.ppMsgErr.set(false);
+      },
+      error: err => {
+        this.ppDeleting.set(null);
+        this.ppMsg.set('❌ ' + (err?.error?.error || 'Delete failed'));
+        this.ppMsgErr.set(true);
+      }
     });
   }
 
