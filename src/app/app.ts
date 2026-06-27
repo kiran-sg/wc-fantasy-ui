@@ -35,6 +35,7 @@ export class App implements OnDestroy {
     this.router.events.pipe(filter(e => e instanceof NavigationEnd)).subscribe((e: any) => {
       this.isLoginPage.set(e.urlAfterRedirects === '/login');
       this.isAdminPage.set(e.urlAfterRedirects === '/admin');
+      this.drawerOpen = false;
       this.resetIdleTimer();
     });
     this.resetIdleTimer();
