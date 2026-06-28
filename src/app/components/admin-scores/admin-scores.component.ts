@@ -511,6 +511,26 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
                     </select>
                   </div>
 
+                  <!-- Transfer summary per round -->
+                  @if (selectedUserTransfers().length > 0) {
+                    <div class="sq-transfers">
+                      <div class="sq-tr-title">Transfers by Round</div>
+                      <div class="sq-tr-rows">
+                        @for (r of selectedUserTransfers(); track r.stage) {
+                          <div class="sq-tr-row" [class.sq-tr-penalty]="r.penaltyPoints > 0">
+                            <span class="sq-tr-stage">{{ stageLabel(r.stage) }}</span>
+                            <span class="sq-tr-made">{{ r.transfersMade }} made</span>
+                            @if (r.penaltyPoints > 0) {
+                              <span class="sq-tr-pen">−{{ r.penaltyPoints }} pts</span>
+                            } @else {
+                              <span class="sq-tr-ok">free</span>
+                            }
+                          </div>
+                        }
+                      </div>
+                    </div>
+                  }
+
                   <!-- Pitch canvas -->
                   <div class="sq-pitch">
                     <div class="pitch-markings">
@@ -1164,6 +1184,15 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
 
     /* Pitch wrap */
     .sq-pitch-wrap { background: #fff; border: 1px solid #e0e0e0; border-radius: 12px; overflow: hidden; padding-bottom: 8px; }
+    .sq-transfers { margin: 8px 12px; background: #f8faff; border: 1px solid #e0e7ff; border-radius: 10px; padding: 8px 12px; }
+    .sq-tr-title { font-size: 11px; font-weight: 800; color: #1a237e; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .sq-tr-rows { display: flex; flex-direction: column; gap: 4px; }
+    .sq-tr-row { display: flex; align-items: center; gap: 8px; font-size: 12px; padding: 4px 8px; border-radius: 6px; background: #fff; border: 1px solid #e8ecff; }
+    .sq-tr-row.sq-tr-penalty { background: #fff5f5; border-color: #fecaca; }
+    .sq-tr-stage { font-weight: 700; color: #1a237e; min-width: 100px; }
+    .sq-tr-made { color: #374151; flex: 1; }
+    .sq-tr-ok { color: #16a34a; font-weight: 600; font-size: 11px; }
+    .sq-tr-pen { color: #dc2626; font-weight: 700; font-size: 11px; }
     .sq-display-select { margin-left: auto; background: #1d4ed8; color: #fff; border: 2px solid #3b82f6; border-radius: 8px; padding: 4px 10px; font-size: 11px; font-weight: 800; cursor: pointer; outline: none; }
     .sq-display-select option { background: #1e2433; }
 
@@ -1623,6 +1652,7 @@ export class AdminScoresComponent implements OnInit {
   selectedUserId = signal<number | null>(null);
   selectedUserTeam = signal<UserTeam | null>(null);
   selectedUserMatchPoints = signal<any[]>([]);
+  selectedUserTransfers = signal<any[]>([]);
   matchStatsCache: Record<number, any[]> = {};
   expandedMatchId = signal<number | null>(null);
   userSearchCtrl = new FormControl('');
@@ -2320,6 +2350,7 @@ export class AdminScoresComponent implements OnInit {
     this.selectedUserId.set(u.id);
     this.selectedUserTeam.set(null);
     this.selectedUserMatchPoints.set([]);
+    this.selectedUserTransfers.set([]);
     this.expandedMatchId.set(null);
     this.globalLoading.set(true);
     this.loadingMsg.set('Loading team...');
@@ -2341,6 +2372,10 @@ export class AdminScoresComponent implements OnInit {
         this.squadMobileView.set('pitch');
         this.api.getMyTeamPoints(u.id).subscribe({
           next: pts => this.selectedUserMatchPoints.set(pts),
+          error: () => {}
+        });
+        this.api.getAllTransferRecords(u.id).subscribe({
+          next: recs => this.selectedUserTransfers.set(recs),
           error: () => {}
         });
       },
@@ -2472,6 +2507,10 @@ export class AdminScoresComponent implements OnInit {
     R32: 'Round of 32', R16: 'Round of 16', QF: 'Quarter-Final',
     SF: 'Semi-Final', LF: "Losers' Final", FINAL: 'Final'
   };
+
+  stageLabel(stage: string): string {
+    return this.STAGE_LABELS[stage] ?? stage;
+  }
 
   matchLabel(match: Match): string {
     if (match.stage === 'GROUP' || !match.matchNumber) return match.stage;
