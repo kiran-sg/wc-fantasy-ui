@@ -1257,7 +1257,8 @@ export class MyTeamComponent implements OnInit {
 
   freeTransfersForStage = computed(() => {
     const c = this.currentConfig();
-    return c ? c.freeTransfers : (DEFAULT_FREE_TRANSFERS[this.currentStage()] ?? 2);
+    const v = c ? c.freeTransfers : (DEFAULT_FREE_TRANSFERS[this.currentStage()] ?? 2);
+    return v >= 100 ? Infinity : v;
   });
   isUnlimitedStage = computed(() => this.freeTransfersForStage() === Infinity);
 

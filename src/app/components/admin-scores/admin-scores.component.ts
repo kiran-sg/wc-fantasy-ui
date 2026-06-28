@@ -779,6 +779,8 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
             </div>
           }
 
+          <div class="pp-count">{{ ppFiltered().length }} player{{ ppFiltered().length === 1 ? '' : 's' }}</div>
+
           <div class="pp-table">
             <div class="pp-header">
               <span class="pp-col pp-name pp-sortable" (click)="setPpSort('name')">Player {{ ppSortIcon('name') }}</span>
@@ -1373,6 +1375,7 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
     .pp-search { flex: 1; min-width: 160px; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; outline: none; }
     .pp-search:focus { border-color: #3f51b5; }
     .pp-pos-filter { padding: 8px 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; outline: none; background: #fff; cursor: pointer; }
+    .pp-count { font-size: 12px; color: #666; margin-bottom: 8px; font-weight: 600; }
     .pp-table { border: 1px solid #e0e0e0; border-radius: 10px; overflow: hidden; }
     .pp-header { display: flex; align-items: center; padding: 8px 12px; background: #f5f5f5; border-bottom: 1px solid #e0e0e0; font-size: 11px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: .5px; }
     .pp-row { display: flex; align-items: center; padding: 8px 12px; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
