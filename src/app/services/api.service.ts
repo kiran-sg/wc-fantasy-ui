@@ -185,4 +185,8 @@ export class ApiService {
     form.append('file', file);
     return this.http.post(`${this.base}/admin/users/bulk-upload`, form);
   }
+
+  adminSquadAudit(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.base}/admin/squad-audit`);
+  }
 }

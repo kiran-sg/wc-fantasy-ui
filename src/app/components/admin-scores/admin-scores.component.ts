@@ -285,6 +285,64 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
         </div>
       }
 
+      <!-- ═══════════════════ SQUAD AUDIT ═══════════════════ -->
+      @if (activeTab() === 'audit') {
+        <div class="audit-wrap">
+          <div class="audit-toolbar">
+            <span class="audit-title">🔍 Squad Position Audit</span>
+            <button class="audit-refresh-btn" [disabled]="auditLoading()" (click)="runSquadAudit()">
+              @if (auditLoading()) { <mat-spinner diameter="14" style="display:inline-block;margin-right:6px"></mat-spinner> }
+              Refresh
+            </button>
+          </div>
+          <p class="subtitle">Lists every player whose position doesn't match their squad slot (e.g. a FWD saved in a DEF slot).</p>
+
+          @if (auditMsg()) {
+            <div class="audit-msg" [class.audit-ok]="auditRows().length === 0">{{ auditMsg() }}</div>
+          }
+
+          @if (auditLoading()) {
+            <div class="audit-loading"><mat-spinner diameter="32"></mat-spinner></div>
+          } @else if (auditRows().length > 0) {
+            <div class="audit-table-wrap">
+              <table class="audit-table">
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th>Formation</th>
+                    <th>Section</th>
+                    <th>Slot #</th>
+                    <th>Slot Pos</th>
+                    <th>Player</th>
+                    <th>Player Pos</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (row of auditRows(); track $index) {
+                    <tr>
+                      <td>
+                        <div class="audit-user">
+                          <span class="audit-display">{{ row.displayName || row.username }}</span>
+                          <span class="audit-uid">#{{ row.userId }}</span>
+                        </div>
+                      </td>
+                      <td><span class="audit-formation">{{ row.formation }}</span></td>
+                      <td>
+                        <span class="audit-section" [class.bench-sec]="row.section === 'BENCH'">{{ row.section }}</span>
+                      </td>
+                      <td class="audit-num">{{ row.slotIndex + 1 }}</td>
+                      <td><span class="pos-tag" [class]="row.slotPosition">{{ row.slotPosition }}</span></td>
+                      <td class="audit-pname">{{ row.playerName }}</td>
+                      <td><span class="pos-tag mismatch" [class]="row.playerPosition">{{ row.playerPosition }}</span></td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </div>
+      }
+
       <!-- ═══════════════════ USER SQUADS ═══════════════════ -->
       @if (activeTab() === 'users') {
         <div class="squads-browser">
@@ -1382,6 +1440,36 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
 
     /* Points column in player pool */
     .pp-pts { width: 48px; justify-content: flex-end; font-weight: 700; color: #3949ab; font-size: 12px; }
+
+    /* ── Squad Audit ──────────────────────────────────────── */
+    .audit-wrap { padding-bottom: 32px; }
+    .audit-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+    .audit-title { font-size: 16px; font-weight: 700; color: #1a237e; }
+    .audit-refresh-btn { padding: 6px 16px; font-size: 12px; font-weight: 700; background: #e8eaf6; color: #3949ab; border: 1px solid #c5cae9; border-radius: 8px; cursor: pointer; display: flex; align-items: center; }
+    .audit-refresh-btn:disabled { opacity: .5; cursor: not-allowed; }
+    .audit-msg { margin: 8px 0; padding: 8px 14px; border-radius: 8px; font-size: 13px; background: #ffebee; color: #c62828; }
+    .audit-msg.audit-ok { background: #e8f5e9; color: #2e7d32; }
+    .audit-loading { padding: 40px; text-align: center; }
+    .audit-table-wrap { overflow-x: auto; border: 1px solid #e0e0e0; border-radius: 10px; margin-top: 12px; }
+    .audit-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .audit-table thead tr { background: #e8eaf6; }
+    .audit-table th { padding: 9px 12px; text-align: left; font-size: 11px; font-weight: 700; color: #3949ab; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; }
+    .audit-table td { padding: 8px 12px; border-top: 1px solid #f0f0f0; vertical-align: middle; }
+    .audit-table tbody tr:hover { background: #fafafa; }
+    .audit-user { display: flex; flex-direction: column; gap: 1px; }
+    .audit-display { font-weight: 600; color: #212121; font-size: 13px; }
+    .audit-uid { font-size: 10px; color: #999; }
+    .audit-formation { font-family: monospace; font-size: 12px; background: #f5f5f5; padding: 2px 6px; border-radius: 4px; }
+    .audit-section { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 5px; background: #e3f2fd; color: #1565c0; }
+    .audit-section.bench-sec { background: #fff3e0; color: #e65100; }
+    .audit-num { font-size: 13px; color: #555; text-align: center; }
+    .audit-pname { font-weight: 500; color: #212121; }
+    .pos-tag { font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; display: inline-block; }
+    .pos-tag.GK  { background: #fff8e1; color: #f57f17; }
+    .pos-tag.DEF { background: #e8f5e9; color: #2e7d32; }
+    .pos-tag.MID { background: #e3f2fd; color: #1565c0; }
+    .pos-tag.FWD { background: #fce4ec; color: #ad1457; }
+    .pos-tag.mismatch { outline: 2px solid #ef4444; }
   `]
 })
 export class AdminScoresComponent implements OnInit {
@@ -1762,6 +1850,7 @@ export class AdminScoresComponent implements OnInit {
     { key: 'teams',   icon: '🌍', label: 'Teams'   },
     { key: 'rounds',  icon: '⚙️', label: 'Rounds'  },
     { key: 'guide',   icon: '⭐', label: 'Points'  },
+    { key: 'audit',   icon: '🔍', label: 'Audit'   },
   ];
 
   setTab(key: string) {
@@ -1775,6 +1864,9 @@ export class AdminScoresComponent implements OnInit {
     }
     if (key === 'teams') {
       if (this.allTeamsAdmin().length === 0) this.loadTeamsAdmin();
+    }
+    if (key === 'audit') {
+      this.runSquadAudit();
     }
   }
 
@@ -1803,6 +1895,24 @@ export class AdminScoresComponent implements OnInit {
   allTeams       = signal<any[]>([]);
   ppShowEliminated = signal(false);
   ppPlayerPoints   = signal<Record<number, number | undefined>>({});
+
+  // Squad position audit
+  auditRows        = signal<any[]>([]);
+  auditLoading     = signal(false);
+  auditMsg         = signal('');
+
+  runSquadAudit() {
+    this.auditLoading.set(true);
+    this.auditMsg.set('');
+    this.api.adminSquadAudit().subscribe({
+      next: rows => {
+        this.auditRows.set(rows);
+        this.auditLoading.set(false);
+        if (rows.length === 0) this.auditMsg.set('No position mismatches found.');
+      },
+      error: () => { this.auditLoading.set(false); this.auditMsg.set('Failed to load audit data.'); }
+    });
+  }
 
   // Teams management
   allTeamsAdmin    = signal<any[]>([]);
