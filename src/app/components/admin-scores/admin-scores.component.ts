@@ -442,8 +442,8 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
                     <div class="user-info">
                       <span class="user-name">{{ team.user.displayName || team.user.username }}</span>
                       <span class="captain-info">
-                        C: {{ team.captain?.name || '—' }}
-                        @if (team.viceCaptain?.name) { · VC: {{ team.viceCaptain.name }} }
+                        C: {{ team.captain.name || '—' }}
+                        @if (team.viceCaptain.name) { · VC: {{ team.viceCaptain.name }} }
                       </span>
                     </div>
                     <div class="sq-points">
@@ -472,11 +472,11 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
                       <div class="pitch-row">
                         @for (p of row; track p.id) {
                           <div class="p-slot">
-                            <div class="p-card" [class.p-card-captain]="p.id === team.captain?.id" [class.p-card-vc]="p.id === team.viceCaptain?.id">
+                            <div class="p-card" [class.p-card-captain]="p.id === team.captain.id" [class.p-card-vc]="p.id === team.viceCaptain.id">
                               <div class="p-card-icons ro-icons">
                                 <div class="cap-badges">
-                                  @if (p.id === team.captain?.id) { <span class="cap-icon c-icon">C</span> }
-                                  @if (p.id === team.viceCaptain?.id) { <span class="cap-icon vc-icon">V</span> }
+                                  @if (p.id === team.captain.id) { <span class="cap-icon c-icon">C</span> }
+                                  @if (p.id === team.viceCaptain.id) { <span class="cap-icon vc-icon">V</span> }
                                 </div>
                               </div>
                               <div class="p-avatar filled-av" [style.--pc]="sqPosColor(p.position)"></div>
@@ -497,12 +497,12 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
                     <div class="bench-strip-slots">
                       @for (p of (team.bench || []); track p.id) {
                         <div class="p-slot is-bench">
-                          <div class="p-card p-card-bench" [class.p-card-captain]="p.id === team.captain?.id" [class.p-card-vc]="p.id === team.viceCaptain?.id">
+                          <div class="p-card p-card-bench" [class.p-card-captain]="p.id === team.captain.id" [class.p-card-vc]="p.id === team.viceCaptain.id">
                             <div class="bench-badge">SUB</div>
                             <div class="p-card-icons ro-icons">
                               <div class="cap-badges">
-                                @if (p.id === team.captain?.id) { <span class="cap-icon c-icon">C</span> }
-                                @if (p.id === team.viceCaptain?.id) { <span class="cap-icon vc-icon">V</span> }
+                                @if (p.id === team.captain.id) { <span class="cap-icon c-icon">C</span> }
+                                @if (p.id === team.viceCaptain.id) { <span class="cap-icon vc-icon">V</span> }
                               </div>
                             </div>
                             <div class="p-avatar filled-av" [style.--pc]="sqPosColor(p.position)"></div>
@@ -547,8 +547,8 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
                             } @else {
                               <div class="pts-player-table">
                                 @for (s of breakdown; track s.player.id) {
-                                  @let isCap = s.player.id === team.captain?.id;
-                                  @let isVC = s.player.id === team.viceCaptain?.id;
+                                  @let isCap = s.player.id === team.captain.id;
+                                  @let isVC = s.player.id === team.viceCaptain.id;
                                   @let ppts = calcPoints(s);
                                   <div class="pts-player-row" [class.pts-row-cap]="isCap" [class.pts-row-vc]="isVC">
                                     <div class="pts-p-info">
