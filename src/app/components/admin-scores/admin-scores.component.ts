@@ -749,7 +749,26 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
             @if (!showAddPlayer()) {
               <button class="pp-add-open-btn" (click)="showAddPlayer.set(true)">+ Add Player</button>
             }
+            <label class="pp-price-upload-btn" [class.pp-uploading]="ppPriceUploading()">
+              @if (ppPriceUploading()) { ⏳ Uploading… } @else { 📥 Upload Prices }
+              <input type="file" accept=".xlsx,.xls" style="display:none" [disabled]="ppPriceUploading()" (change)="onPriceFileChange($event)">
+            </label>
           </div>
+
+          @if (ppPriceResult()) {
+            <div class="pp-price-result" [class.pp-price-err]="ppPriceResult()!.error">
+              @if (ppPriceResult()!.error) {
+                ❌ {{ ppPriceResult()!.error }}
+              } @else {
+                ✅ Updated: {{ ppPriceResult()!.updated }} &nbsp;|&nbsp; Not found: {{ ppPriceResult()!.notFound }} &nbsp;|&nbsp; Skipped: {{ ppPriceResult()!.skipped }}
+                @if (ppPriceResult()!.errors?.length) {
+                  <div class="pp-price-errs">
+                    @for (e of ppPriceResult()!.errors; track e) { <div>⚠ {{ e }}</div> }
+                  </div>
+                }
+              }
+            </div>
+          }
 
           @if (showAddPlayer()) {
             <div class="pp-add-form">
@@ -1375,6 +1394,12 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
     .pp-search { flex: 1; min-width: 160px; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; outline: none; }
     .pp-search:focus { border-color: #3f51b5; }
     .pp-pos-filter { padding: 8px 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; outline: none; background: #fff; cursor: pointer; }
+    .pp-price-upload-btn { display: inline-flex; align-items: center; padding: 6px 12px; background: #1565c0; color: #fff; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: opacity .2s; }
+    .pp-price-upload-btn:hover { opacity: .85; }
+    .pp-price-upload-btn.pp-uploading { opacity: .6; cursor: not-allowed; }
+    .pp-price-result { margin-bottom: 10px; padding: 8px 12px; border-radius: 8px; font-size: 12px; background: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
+    .pp-price-result.pp-price-err { background: #ffebee; color: #c62828; border-color: #ffcdd2; }
+    .pp-price-errs { margin-top: 6px; font-size: 11px; opacity: .85; max-height: 100px; overflow-y: auto; }
     .pp-count { font-size: 12px; color: #666; margin-bottom: 8px; font-weight: 600; }
     .pp-table { border: 1px solid #e0e0e0; border-radius: 10px; overflow: hidden; }
     .pp-header { display: flex; align-items: center; padding: 8px 12px; background: #f5f5f5; border-bottom: 1px solid #e0e0e0; font-size: 11px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: .5px; }
@@ -1898,6 +1923,8 @@ export class AdminScoresComponent implements OnInit {
   allTeams       = signal<any[]>([]);
   ppShowEliminated = signal(false);
   ppPlayerPoints   = signal<Record<number, number | undefined>>({});
+  ppPriceUploading = signal(false);
+  ppPriceResult    = signal<{ updated?: number; notFound?: number; skipped?: number; errors?: string[]; error?: string } | null>(null);
 
   // Squad position audit
   auditRows        = signal<any[]>([]);
@@ -2071,6 +2098,27 @@ export class AdminScoresComponent implements OnInit {
         this.ppDeleting.set(null);
         this.ppMsg.set('❌ ' + (err?.error?.error || 'Delete failed'));
         this.ppMsgErr.set(true);
+      }
+    });
+  }
+
+  onPriceFileChange(event: Event) {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    this.ppPriceUploading.set(true);
+    this.ppPriceResult.set(null);
+    this.api.adminUploadPlayerPrices(file).subscribe({
+      next: (res: any) => {
+        this.ppPriceResult.set(res);
+        this.ppPriceUploading.set(false);
+        // Reload player list to reflect updated prices
+        this.api.getAllPlayers().subscribe({ next: players => { this.allPpPlayers.set(players); this.filterPlayers(); } });
+        (event.target as HTMLInputElement).value = '';
+      },
+      error: (err: any) => {
+        this.ppPriceResult.set({ error: err?.error?.error ?? 'Upload failed' });
+        this.ppPriceUploading.set(false);
+        (event.target as HTMLInputElement).value = '';
       }
     });
   }

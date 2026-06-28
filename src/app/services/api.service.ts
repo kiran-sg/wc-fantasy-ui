@@ -186,6 +186,12 @@ export class ApiService {
     return this.http.post(`${this.base}/admin/users/bulk-upload`, form);
   }
 
+  adminUploadPlayerPrices(file: File): Observable<any> {
+    const form = new FormData();
+    form.append('file', file);
+    return this.http.post(`${this.base}/admin/players/price-upload`, form);
+  }
+
   adminSquadAudit(): Observable<any[]> {
     return this.http.get<any[]>(`${this.base}/admin/squad-audit`);
   }
