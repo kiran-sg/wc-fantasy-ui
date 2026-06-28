@@ -2,6 +2,7 @@ import { Component, HostListener, inject, signal, OnDestroy } from '@angular/cor
 import { RouterOutlet, RouterLink, RouterLinkActive, Router, NavigationEnd } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { HttpClient } from '@angular/common/http';
 import { filter } from 'rxjs/operators';
 import { AuthService } from './services/auth.service';
 import { LoadingService } from './services/loading.service';
@@ -20,6 +21,7 @@ export class App implements OnDestroy {
   loading = inject(LoadingService);
   private router   = inject(Router);
   private snackBar = inject(MatSnackBar);
+  private http     = inject(HttpClient);
 
   private inactivityTimer: ReturnType<typeof setTimeout> | null = null;
   private warningTimer:    ReturnType<typeof setTimeout> | null = null;
@@ -39,6 +41,28 @@ export class App implements OnDestroy {
       this.resetIdleTimer();
     });
     this.resetIdleTimer();
+    this.checkFrontendVersion();
+  }
+
+  private checkFrontendVersion(): void {
+    this.http.get<{ buildTime: number }>('/version.json', { params: { _: String(Math.random()) } })
+      .subscribe({
+        next: ({ buildTime }) => {
+          const stored = localStorage.getItem('feBuildTime');
+          if (!stored) {
+            localStorage.setItem('feBuildTime', String(buildTime));
+            return;
+          }
+          if (stored !== String(buildTime)) {
+            localStorage.setItem('feBuildTime', String(buildTime));
+            if (this.auth.isLoggedIn()) {
+              this.auth.logout();
+              this.router.navigate(['/login']);
+            }
+          }
+        },
+        error: () => {} // ignore if version.json missing (local dev without prebuild)
+      });
   }
 
   ngOnDestroy(): void { this.clearIdleTimers(); }
