@@ -61,6 +61,20 @@ img { max-width: 100%; }
   --mdc-snackbar-container-color: #b71c1c;
   --mdc-snackbar-supporting-text-color: #fff;
   --mat-snack-bar-button-color: #ffcdd2;
+
+  .mdc-snackbar__surface {
+    background-color: #b71c1c !important;
+  }
+  .mdc-snackbar__label,
+  .mat-mdc-snack-bar-label {
+    color: #fff !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+  }
+  .mat-mdc-button {
+    color: #ffcdd2 !important;
+    font-weight: 700 !important;
+  }
 }
 
 @media (max-width: 600px) {

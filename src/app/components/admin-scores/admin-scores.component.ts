@@ -103,20 +103,20 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
           <mat-card class="match-card" appearance="outlined">
             <div class="match-header">
               <div class="header-left">
-                <span class="stage-chip">{{ match.stage }}</span>
+                <span class="stage-chip">{{ matchLabel(match) }}</span>
                 <span class="status-chip" [class]="match.status.toLowerCase()">{{ match.status }}</span>
               </div>
               <span class="match-time">{{ formatDate(match.matchTime) }}</span>
             </div>
 
             <div class="teams-row">
-              <span class="team">{{ match.teamA?.name ?? match.teamALabel ?? 'TBD' }}</span>
+              <span class="team">{{ teamName(match, 'A') }}</span>
               @if (match.status === 'COMPLETED' || match.status === 'LIVE') {
                 <span class="score">{{ match.scoreA }} – {{ match.scoreB }}</span>
               } @else {
                 <span class="vs">VS</span>
               }
-              <span class="team">{{ match.teamB?.name ?? match.teamBLabel ?? 'TBD' }}</span>
+              <span class="team">{{ teamName(match, 'B') }}</span>
             </div>
 
             <div class="actions-row">
@@ -159,8 +159,8 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
                     </div>
                     <div class="stats-team-btns">
                       <button class="st-btn" [class.active]="statsTeamFilter() === null" (click)="statsTeamFilter.set(null)">All</button>
-                      <button class="st-btn" [class.active]="statsTeamFilter() === (match.teamA?.name ?? match.teamALabel)" (click)="statsTeamFilter.set(match.teamA?.name ?? match.teamALabel ?? null)">{{ match.teamA?.name ?? match.teamALabel ?? 'TBD' }}</button>
-                      <button class="st-btn" [class.active]="statsTeamFilter() === (match.teamB?.name ?? match.teamBLabel)" (click)="statsTeamFilter.set(match.teamB?.name ?? match.teamBLabel ?? null)">{{ match.teamB?.name ?? match.teamBLabel ?? 'TBD' }}</button>
+                      <button class="st-btn" [class.active]="statsTeamFilter() === teamName(match, 'A')" (click)="statsTeamFilter.set(teamName(match, 'A'))">{{ teamName(match, 'A') }}</button>
+                      <button class="st-btn" [class.active]="statsTeamFilter() === teamName(match, 'B')" (click)="statsTeamFilter.set(teamName(match, 'B'))">{{ teamName(match, 'B') }}</button>
                     </div>
                   </div>
                   <div class="stats-title">Player Stats — {{ filteredPlayerStats().length }}<span class="stats-total"> / {{ playerStats().length }}</span></div>
@@ -586,7 +586,7 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
                           <div class="pts-match-header" (click)="toggleMatchBreakdown(mp.match.id)">
                             <div class="pts-match-left">
                               <span class="pts-stage-tag">{{ mp.stage }}</span>
-                              <span class="pts-match-name">{{ mp.match.teamA?.name ?? mp.match.teamALabel ?? 'TBD' }} vs {{ mp.match.teamB?.name ?? mp.match.teamBLabel ?? 'TBD' }}</span>
+                              <span class="pts-match-name">{{ teamName(mp.match, 'A') }} vs {{ teamName(mp.match, 'B') }}</span>
                               <span class="pts-match-score">{{ mp.match.scoreA ?? '?' }}–{{ mp.match.scoreB ?? '?' }}</span>
                             </div>
                             <div class="pts-match-right">
@@ -1549,8 +1549,8 @@ export class AdminScoresComponent implements OnInit {
     const list = this.finishedMatches();
     if (!q) return list;
     return list.filter(m => {
-      const nameA = m.teamA?.name ?? m.teamALabel ?? '';
-      const nameB = m.teamB?.name ?? m.teamBLabel ?? '';
+      const nameA = this.teamName(m, 'A');
+      const nameB = this.teamName(m, 'B');
       const teams = `${nameA} ${nameB}`.toLowerCase();
       const date = this.formatShortDate(m.matchTime).toLowerCase();
       return teams.includes(q) || date.includes(q);
@@ -2288,5 +2288,30 @@ export class AdminScoresComponent implements OnInit {
 
   formatShortDate(dt: string): string {
     return new Date(dt).toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+  }
+
+  private readonly STAGE_LABELS: Record<string, string> = {
+    R32: 'Round of 32', R16: 'Round of 16', QF: 'Quarter-Final',
+    SF: 'Semi-Final', LF: "Losers' Final", FINAL: 'Final'
+  };
+
+  matchLabel(match: Match): string {
+    if (match.stage === 'GROUP' || !match.matchNumber) return match.stage;
+    return `${this.STAGE_LABELS[match.stage] ?? match.stage} · Match ${match.matchNumber}`;
+  }
+
+  formatBracketLabel(label: string | null): string {
+    if (!label) return 'TBD';
+    return label
+      .replace(/Round of 32\s+(\d+)/i,  'R32 M$1')
+      .replace(/Round of 16\s+(\d+)/i,  'R16 M$1')
+      .replace(/Quarterfinal\s+(\d+)/i, 'QF M$1')
+      .replace(/Semifinal\s+(\d+)/i,    'SF M$1');
+  }
+
+  teamName(match: Match, side: 'A' | 'B'): string {
+    const team  = side === 'A' ? match.teamA  : match.teamB;
+    const label = side === 'A' ? match.teamALabel : match.teamBLabel;
+    return team?.name ?? this.formatBracketLabel(label);
   }
 }

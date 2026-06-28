@@ -25,7 +25,7 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
     @for (match of matches(); track match.id) {
       <mat-card class="match-card" [class.locked]="match.status !== 'UPCOMING'" appearance="outlined">
         <div class="match-header">
-          <span class="match-stage">{{ stageLabel(match.stage) }}</span>
+          <span class="match-stage">{{ matchLabel(match) }}</span>
           @if (match.status !== 'UPCOMING') {
             <span class="status-badge" [class]="match.status.toLowerCase()">
               {{ statusLabel(match) }}
@@ -37,7 +37,7 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
             @if (match.teamA?.flagUrl) {
               <img class="team-flag" [src]="match.teamA!.flagUrl" [alt]="match.teamA!.name">
             }
-            <span class="team-name">{{ match.teamA?.name ?? match.teamALabel ?? 'TBD' }}</span>
+            <span class="team-name">{{ teamName(match, 'A') }}</span>
           </div>
           <div class="vs-col">
             @if (match.status === 'COMPLETED' || match.status === 'LIVE') {
@@ -50,7 +50,7 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
             @if (match.teamB?.flagUrl) {
               <img class="team-flag" [src]="match.teamB!.flagUrl" [alt]="match.teamB!.name">
             }
-            <span class="team-name">{{ match.teamB?.name ?? match.teamBLabel ?? 'TBD' }}</span>
+            <span class="team-name">{{ teamName(match, 'B') }}</span>
           </div>
         </div>
         <div class="match-info">
@@ -103,7 +103,18 @@ export class MatchListComponent implements OnInit {
 
   ngOnInit() {
     this.api.getMatches().subscribe({
-      next: (m) => { this.matches.set(m.filter(x => x.stage !== 'GROUP')); this.loading.set(false); },
+      next: (m) => {
+        const STAGE_ORDER: Record<string, number> = { R32: 1, R16: 2, QF: 3, SF: 4, LF: 5, FINAL: 6 };
+        const sorted = m
+          .filter(x => x.stage !== 'GROUP')
+          .sort((a, b) => {
+            const so = (STAGE_ORDER[a.stage] ?? 99) - (STAGE_ORDER[b.stage] ?? 99);
+            if (so !== 0) return so;
+            return new Date(a.matchTime).getTime() - new Date(b.matchTime).getTime();
+          });
+        this.matches.set(sorted);
+        this.loading.set(false);
+      },
       error: () => this.loading.set(false)
     });
   }
@@ -113,8 +124,35 @@ export class MatchListComponent implements OnInit {
     QF: 'Quarter-Final', SF: 'Semi-Final', LF: "Losers' Final", FINAL: 'Final'
   };
 
+  private readonly STAGE_SHORT: Record<string, string> = {
+    R32: 'R32', R16: 'R16', QF: 'QF', SF: 'SF', LF: 'LF', FINAL: 'Final'
+  };
+
   stageLabel(stage: string): string {
     return this.STAGE_LABELS[stage] ?? stage;
+  }
+
+  matchLabel(match: Match): string {
+    if (match.stage === 'GROUP' || !match.matchNumber) return this.stageLabel(match.stage);
+    return `${this.stageLabel(match.stage)} · Match ${match.matchNumber}`;
+  }
+
+  // Converts "Round of 32 3 Winner" → "R32 M3 Winner", "Quarterfinal 2 Winner" → "QF M2 Winner" etc.
+  formatBracketLabel(label: string | null): string {
+    if (!label) return 'TBD';
+    return label
+      .replace(/Round of 32\s+(\d+)/i,   'R32 M$1')
+      .replace(/Round of 16\s+(\d+)/i,   'R16 M$1')
+      .replace(/Quarterfinal\s+(\d+)/i,  'QF M$1')
+      .replace(/Semifinal\s+(\d+)/i,     'SF M$1')
+      .replace(/Winner$/i, 'Winner')
+      .replace(/Loser$/i,  'Loser');
+  }
+
+  teamName(match: Match, side: 'A' | 'B'): string {
+    const team  = side === 'A' ? match.teamA  : match.teamB;
+    const label = side === 'A' ? match.teamALabel : match.teamBLabel;
+    return team?.name ?? this.formatBracketLabel(label);
   }
 
   statusLabel(match: Match): string {

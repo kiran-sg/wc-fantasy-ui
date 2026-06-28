@@ -25,6 +25,7 @@ export interface Match {
   teamB: Team | null;
   teamALabel: string | null;
   teamBLabel: string | null;
+  matchNumber: number | null;
   matchTime: string;
   venue: string;
   stage: string;
