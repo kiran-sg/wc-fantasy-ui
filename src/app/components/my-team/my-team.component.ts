@@ -1160,6 +1160,7 @@ export class MyTeamComponent implements OnInit {
   addPlayerFromPool(player: Player) {
     const s = this.activeSlot();
     if (s) {
+      if (player.position !== s.pos) return;
       if (s.type === 'xi') { const slots = [...this.starterSlots()]; slots[s.i] = player.id; this.starterSlots.set(slots); }
       else { const bench = [...this.benchSlots()]; bench[s.i] = player.id; this.benchSlots.set(bench); }
       this.activeSlot.set(null);
