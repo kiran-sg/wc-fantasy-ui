@@ -344,7 +344,7 @@ const BENCH_ROW: SlotRef[] = [
             }
           </div>
           <div class="am-actions">
-            <button class="am-btn am-remove" (click)="removeActive()">Remove</button>
+            <button class="am-btn am-remove" [disabled]="!windowOpen()" (click)="removeActive()">Remove</button>
             <button class="am-btn am-cap" [class.am-sel]="captainId() === p.id" (click)="setCaptain(p.id)">
               {{ captainId() === p.id ? '✓ Captain' : 'Captain' }}
             </button>
@@ -361,13 +361,13 @@ const BENCH_ROW: SlotRef[] = [
           <span class="cap-tag c-tag">C: {{ captainName() ?? '—' }}</span>
           <span class="cap-tag v-tag">V: {{ vcName() ?? '—' }}</span>
         </div>
-        <select class="formation-select" [ngModel]="selectedFormation()" (ngModelChange)="changeFormation($event)">
+        <select class="formation-select" [ngModel]="selectedFormation()" (ngModelChange)="changeFormation($event)" [disabled]="!windowOpen()">
           @for (f of FORMATIONS; track f) {
             <option [value]="f">{{ f }}</option>
           }
         </select>
-        <button class="autopick-btn" [class.picking]="autoPicking()" (click)="autoPick()">⚡ AUTOPICK</button>
-        <button class="clear-btn" (click)="clearAll()">✕ Clear</button>
+        <button class="autopick-btn" [class.picking]="autoPicking()" [disabled]="!windowOpen()" (click)="autoPick()">⚡ AUTOPICK</button>
+        <button class="clear-btn" [disabled]="!windowOpen()" (click)="clearAll()">✕ Clear</button>
       </div>
 
       <!-- Save button -->
@@ -450,11 +450,11 @@ const BENCH_ROW: SlotRef[] = [
             <div class="pr-price" [class.pr-col-active]="sortBy() === 'price_desc'">{{ fmtM(p.price) }}</div>
             <div class="pr-pts"   [class.pr-col-active]="sortBy() === 'pts_desc'">{{ p.totalPoints ?? 0 }}</div>
             @if (canSubIntoActiveSlot(p)) {
-              <button class="pr-circ-btn pr-sub-btn" (click)="subPlayerIntoActiveSlot(p)" title="Substitute">⇅</button>
+              <button class="pr-circ-btn pr-sub-btn" [disabled]="!windowOpen()" (click)="subPlayerIntoActiveSlot(p)" title="Substitute">⇅</button>
             } @else if (inSquad(p.id)) {
-              <button class="pr-circ-btn pr-rem-btn" (click)="removeById(p.id)" title="Remove"><span>−</span></button>
+              <button class="pr-circ-btn pr-rem-btn" [disabled]="!windowOpen()" (click)="removeById(p.id)" title="Remove"><span>−</span></button>
             } @else {
-              <button class="pr-circ-btn pr-add-btn" [disabled]="!canAdd(p)" (click)="addPlayerFromPool(p)" title="Add"><span>+</span></button>
+              <button class="pr-circ-btn pr-add-btn" [disabled]="!windowOpen() || !canAdd(p)" (click)="addPlayerFromPool(p)" title="Add"><span>+</span></button>
             }
           </div>
         }
@@ -1462,6 +1462,7 @@ export class MyTeamComponent implements OnInit {
   }
 
   tapSlot(type: 'xi' | 'bench', i: number, pos: string) {
+    if (!this.windowOpen()) return;
     const cur = this.activeSlot();
     // Tap opposite-group slot of same position → free substitution swap
     if (cur && cur.type !== type && cur.pos === pos) {
