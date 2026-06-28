@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -32,6 +32,7 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
             </span>
           }
         </div>
+
         <div class="teams">
           <div class="team">
             @if (match.teamA?.flagUrl) {
@@ -44,6 +45,7 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
               <span class="score">{{ match.scoreA }} – {{ match.scoreB }}</span>
             } @else {
               <span class="vs">VS</span>
+              <span class="match-time-center">{{ formatDate(match.matchTime) }}</span>
             }
           </div>
           <div class="team">
@@ -53,14 +55,32 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
             <span class="team-name">{{ teamName(match, 'B') }}</span>
           </div>
         </div>
+
+        <!-- Goal scorers row — shown for COMPLETED/LIVE matches with stats -->
+        @if ((match.status === 'COMPLETED' || match.status === 'LIVE') && hasStats(match.id)) {
+          <div class="scorers-row">
+            <div class="scorers-side scorers-left">
+              @for (s of scorers(match.id, match.teamA?.id); track s.name) {
+                <span class="scorer-entry">⚽ {{ s.name }}{{ s.count > 1 ? ' ×' + s.count : '' }}{{ s.og ? ' (OG)' : '' }}</span>
+              }
+            </div>
+            <div class="scorers-divider"></div>
+            <div class="scorers-side scorers-right">
+              @for (s of scorers(match.id, match.teamB?.id); track s.name) {
+                <span class="scorer-entry">⚽ {{ s.name }}{{ s.count > 1 ? ' ×' + s.count : '' }}{{ s.og ? ' (OG)' : '' }}</span>
+              }
+            </div>
+          </div>
+        }
+
         <div class="match-info">
-          <span>🕐 {{ formatDate(match.matchTime) }}</span>
+          @if (match.status !== 'UPCOMING') {
+            <span>🕐 {{ formatDate(match.matchTime) }}</span>
+          }
           <span>🏟️ {{ cleanVenue(match.venue) }}</span>
         </div>
+
         <div class="actions">
-          @if (match.status === 'LIVE') {
-            <a mat-flat-button color="warn" [routerLink]="['/live', match.id]">🔴 Go Live</a>
-          }
           @if (match.status === 'COMPLETED') {
             <a mat-stroked-button [routerLink]="['/leaderboard']">🏆 Leaderboard</a>
           }
@@ -87,9 +107,24 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
     .team { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; min-width: 0; }
     .team-flag { width: 36px; height: 24px; object-fit: cover; border-radius: 3px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
     .team-name { font-size: 13px; font-weight: 700; color: #333; text-align: center; word-break: break-word; }
-    .vs-col { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
+    .vs-col { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; gap: 2px; }
     .vs { color: #999; font-size: 11px; font-weight: 700; }
     .score { font-size: 22px; font-weight: 800; color: #1a237e; white-space: nowrap; }
+    .match-time-center { font-size: 10px; color: #888; white-space: nowrap; }
+
+    /* Scorers */
+    .scorers-row {
+      display: flex; align-items: flex-start; gap: 8px;
+      margin: 0 0 10px; padding: 8px 10px;
+      background: #f5f7ff; border-radius: 8px;
+      min-height: 28px;
+    }
+    .scorers-side { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+    .scorers-left { align-items: flex-start; }
+    .scorers-right { align-items: flex-end; }
+    .scorers-divider { width: 1px; background: #dde3ff; flex-shrink: 0; align-self: stretch; }
+    .scorer-entry { font-size: 11px; color: #333; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+
     .match-info { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11px; color: #666; margin-top: 2px; }
     .actions { margin-top: 10px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
     .actions a, .actions button { font-size: 13px !important; min-height: 36px; }
@@ -100,6 +135,8 @@ export class MatchListComponent implements OnInit {
   auth = inject(AuthService);
   matches = signal<Match[]>([]);
   loading = signal(true);
+  // matchId → raw stats array
+  private statsMap = signal<Record<number, any[]>>({});
 
   ngOnInit() {
     this.api.getMatches().subscribe({
@@ -114,18 +151,64 @@ export class MatchListComponent implements OnInit {
           });
         this.matches.set(sorted);
         this.loading.set(false);
+        // Fetch stats for completed/live matches
+        sorted
+          .filter(match => match.status === 'COMPLETED' || match.status === 'LIVE')
+          .forEach(match => this.loadStats(match.id));
       },
       error: () => this.loading.set(false)
     });
   }
 
+  private loadStats(matchId: number) {
+    this.api.getMatchStats(matchId).subscribe({
+      next: stats => {
+        this.statsMap.update(m => ({ ...m, [matchId]: stats }));
+      },
+      error: () => {}
+    });
+  }
+
+  hasStats(matchId: number): boolean {
+    const s = this.statsMap()[matchId];
+    return !!s && s.length > 0;
+  }
+
+  // Returns goal scorers for a team in a match.
+  // Own goals scored BY the other team appear here too (they count for this team's score).
+  scorers(matchId: number, teamId: number | undefined): { name: string; count: number; og: boolean }[] {
+    if (!teamId) return [];
+    const stats = this.statsMap()[matchId] ?? [];
+    const result: { name: string; count: number; og: boolean }[] = [];
+
+    // Regular goals by this team's players
+    for (const s of stats) {
+      const pid = s.player?.team?.id ?? s.player?.teamId;
+      if (pid === teamId && s.goals > 0) {
+        result.push({ name: this.shortName(s.player?.name), count: s.goals, og: false });
+      }
+    }
+    // Own goals by the OPPOSING team (count toward this team)
+    for (const s of stats) {
+      const pid = s.player?.team?.id ?? s.player?.teamId;
+      if (pid !== teamId && s.ownGoals > 0) {
+        result.push({ name: this.shortName(s.player?.name), count: s.ownGoals, og: true });
+      }
+    }
+    return result;
+  }
+
+  private shortName(name: string | undefined): string {
+    if (!name) return '';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0];
+    // "Kylian Mbappe" → "K. Mbappe"
+    return parts[0][0] + '. ' + parts.slice(1).join(' ');
+  }
+
   private readonly STAGE_LABELS: Record<string, string> = {
     GROUP: 'Group Stage', R32: 'Round of 32', R16: 'Round of 16',
     QF: 'Quarter-Final', SF: 'Semi-Final', LF: "Losers' Final", FINAL: 'Final'
-  };
-
-  private readonly STAGE_SHORT: Record<string, string> = {
-    R32: 'R32', R16: 'R16', QF: 'QF', SF: 'SF', LF: 'LF', FINAL: 'Final'
   };
 
   stageLabel(stage: string): string {
@@ -137,7 +220,6 @@ export class MatchListComponent implements OnInit {
     return `${this.stageLabel(match.stage)} · Match ${match.matchNumber}`;
   }
 
-  // Converts "Round of 32 3 Winner" → "R32 M3 Winner", "Quarterfinal 2 Winner" → "QF M2 Winner" etc.
   formatBracketLabel(label: string | null): string {
     if (!label) return 'TBD';
     return label

@@ -503,7 +503,7 @@ export class MyPicksComponent implements OnInit {
     }
     this.loadingBreakdown.set(true);
     this.breakdownRows.set([]);
-    this.api.adminGetMatchStats(sq.match.id).subscribe({
+    this.api.getMatchStats(sq.match.id).subscribe({
       next: stats => {
         this.statsCache.set(sq.match.id, stats);
         this.buildBreakdown(sq, stats);

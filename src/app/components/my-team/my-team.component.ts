@@ -136,6 +136,14 @@ const BENCH_ROW: SlotRef[] = [
     }
   </div>
 
+  <!-- Team load error banner -->
+  @if (teamLoadFailed()) {
+    <div class="team-load-error">
+      ⚠️ Could not load your team. Check your connection and try again.
+      <button class="retry-btn" (click)="retryLoadTeam()">Retry</button>
+    </div>
+  }
+
   <!-- ═══════════════════ BODY ═══════════════════ -->
   <div class="body-row" [class.mobile-show-pool]="mobileView() === 'pool'">
 
@@ -148,7 +156,7 @@ const BENCH_ROW: SlotRef[] = [
           <div class="tp-stage-col">
             <span class="tp-stage-badge">{{ stageLabel() }}</span>
             <span class="tp-window-lbl">
-              Window: {{ fmtHour(currentConfig()?.windowOpenHour ?? 12) }}–{{ fmtHour(currentConfig()?.windowCloseHour ?? 19) }} IST daily
+              Window: {{ fmtHour(currentConfig()?.windowOpenHour ?? 12) }}–{{ fmtHour(currentConfig()?.windowCloseHour ?? 19) }} daily
             </span>
           </div>
           <div class="tp-divider"></div>
@@ -374,7 +382,7 @@ const BENCH_ROW: SlotRef[] = [
       <div class="save-row" (click)="$event.stopPropagation()">
         @if (!windowOpen()) {
           <div class="window-closed-bar">
-            🔒 Transfer window closed · Opens {{ fmtHour(currentConfig()?.windowOpenHour ?? 12) }} IST
+            🔒 Transfer window closed · Opens {{ fmtHour(currentConfig()?.windowOpenHour ?? 12) }}
           </div>
         }
         <button class="save-btn" [disabled]="!canSave()" (click)="confirmSave()">
@@ -635,6 +643,17 @@ const BENCH_ROW: SlotRef[] = [
   `,
   styles: [`
     :host { display: block; }
+
+    .team-load-error {
+      background: #7f1d1d; color: #fef2f2; font-size: 13px; font-weight: 600;
+      padding: 10px 16px; display: flex; align-items: center; justify-content: center;
+      gap: 12px; flex-shrink: 0;
+    }
+    .retry-btn {
+      background: #fff; color: #7f1d1d; border: none; border-radius: 6px;
+      padding: 4px 12px; font-size: 12px; font-weight: 700; cursor: pointer;
+    }
+    .retry-btn:hover { background: #fef2f2; }
 
     .page-wrap {
       position: fixed; top: 56px; left: 0; right: 0; bottom: 0;
@@ -1192,6 +1211,8 @@ export class MyTeamComponent implements OnInit {
 
   allPlayers     = signal<Player[]>([]);
   poolLoading    = signal(true);
+  teamLoading    = signal(true);
+  teamLoadFailed = signal(false);
   existingTeam   = signal<UserTeam | null>(null);
   nextMatch      = signal<Match | null>(null);
   transferRecord = signal<UserTransferRecord | null>(null);
@@ -1424,11 +1445,30 @@ export class MyTeamComponent implements OnInit {
 
     const userId = this.auth.getUserId();
     if (userId) {
-      this.api.getMyTeam(+userId).subscribe({
-        next: team => { if (!team) return; this.existingTeam.set(team); this.loadTeamIntoSlots(team); },
-        error: () => {}
-      });
+      this.loadMyTeam(+userId);
     }
+  }
+
+  retryLoadTeam() {
+    const userId = this.auth.getUserId();
+    if (userId) this.loadMyTeam(+userId);
+  }
+
+  loadMyTeam(userId: number) {
+    this.teamLoading.set(true);
+    this.teamLoadFailed.set(false);
+    this.api.getMyTeam(userId).subscribe({
+      next: team => {
+        this.teamLoading.set(false);
+        if (!team) return;
+        this.existingTeam.set(team);
+        this.loadTeamIntoSlots(team);
+      },
+      error: () => {
+        this.teamLoading.set(false);
+        this.teamLoadFailed.set(true);
+      }
+    });
   }
 
   private loadTeamIntoSlots(team: UserTeam) {

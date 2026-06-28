@@ -140,6 +140,18 @@ export class ApiService {
     return this.http.post(`${this.base}/admin/update-scores/${matchId}`, {});
   }
 
+  adminPreviewScores(matchId: number): Observable<any> {
+    return this.http.post(`${this.base}/admin/preview-scores/${matchId}`, {});
+  }
+
+  adminSaveScores(matchId: number, scoreA: number, scoreB: number, stats: any[]): Observable<any> {
+    return this.http.post(`${this.base}/admin/save-scores/${matchId}`, { scoreA, scoreB, stats });
+  }
+
+  getMatchStats(matchId: number): Observable<any[]> {
+    return this.http.get<any[]>(`${this.base}/matches/${matchId}/stats`);
+  }
+
   adminGetMatchStats(matchId: number): Observable<any[]> {
     return this.http.get<any[]>(`${this.base}/admin/match-stats/${matchId}`);
   }

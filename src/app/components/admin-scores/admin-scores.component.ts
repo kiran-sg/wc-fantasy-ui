@@ -100,7 +100,7 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
         }
 
         @for (match of filteredMatches(); track match.id) {
-          <mat-card class="match-card" appearance="outlined">
+          <mat-card class="match-card" [class.match-card-preview]="previewMatchId() === match.id" appearance="outlined">
             <div class="match-header">
               <div class="header-left">
                 <span class="stage-chip">{{ matchLabel(match) }}</span>
@@ -119,24 +119,43 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
               <span class="team">{{ teamName(match, 'B') }}</span>
             </div>
 
+            <!-- Action buttons row -->
             <div class="actions-row">
-              <button class="espn-btn"
-                [disabled]="updating() === match.id || !espnFetchReady(match)"
-                (click)="fetchFromEspn(match.id)">
-                @if (updating() === match.id) {
-                  <mat-spinner diameter="16" class="espn-spinner"></mat-spinner>
-                } @else {
-                  <mat-icon class="espn-icon">sports_soccer</mat-icon>
-                }
-                <span>{{ updating() === match.id ? 'Fetching…' : 'Fetch from ESPN' }}</span>
-              </button>
-              @if (match.status === 'COMPLETED') {
-                <button mat-stroked-button (click)="toggleStats(match.id)">
-                  📊 {{ statsForMatch() === match.id ? 'Hide Stats' : 'Player Stats' }}
+              <!-- Step 1: Fetch & Preview -->
+              @if (previewMatchId() !== match.id) {
+                <button class="espn-btn"
+                  [disabled]="previewing() === match.id || saving() === match.id || !espnFetchReady(match)"
+                  (click)="previewFromEspn(match)">
+                  @if (previewing() === match.id) {
+                    <mat-spinner diameter="16" class="espn-spinner"></mat-spinner>
+                  } @else {
+                    <mat-icon class="espn-icon">sports_soccer</mat-icon>
+                  }
+                  <span>{{ previewing() === match.id ? 'Fetching…' : 'Fetch from ESPN' }}</span>
                 </button>
-                <button mat-stroked-button color="accent" (click)="recalculate(match.id)">
-                  🔁 Recalculate Points
+              }
+              @if (previewMatchId() === match.id) {
+                <button class="espn-btn espn-btn-refetch"
+                  [disabled]="previewing() === match.id || saving() === match.id"
+                  (click)="previewFromEspn(match)">
+                  @if (previewing() === match.id) {
+                    <mat-spinner diameter="16" class="espn-spinner"></mat-spinner>
+                  } @else {
+                    <mat-icon class="espn-icon">refresh</mat-icon>
+                  }
+                  <span>Re-fetch</span>
                 </button>
+                <button class="save-pts-btn"
+                  [disabled]="saving() === match.id"
+                  (click)="saveAndCalculate(match.id)">
+                  @if (saving() === match.id) {
+                    <mat-spinner diameter="16" class="espn-spinner"></mat-spinner>
+                  } @else {
+                    <mat-icon class="espn-icon">calculate</mat-icon>
+                  }
+                  <span>{{ saving() === match.id ? 'Saving…' : 'Save & Calculate Points' }}</span>
+                </button>
+                <button class="discard-btn" (click)="discardPreview()">✕ Discard</button>
               }
             </div>
 
@@ -144,10 +163,21 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
               <div class="result-msg" [class.error]="resultMsg().startsWith('❌')">{{ resultMsg() }}</div>
             }
 
-            @if (statsForMatch() === match.id && playerStats().length > 0) {
-              <div class="stats-section">
-                <div class="stats-top-row">
-                  <div class="stats-filters">
+            <!-- Preview / edit panel -->
+            @if (previewMatchId() === match.id && previewStats().length > 0) {
+              <div class="preview-section">
+                <div class="preview-sticky-header">
+                <div class="preview-header">
+                  <!-- Score editors -->
+                  <div class="score-edit-row">
+                    <span class="score-edit-team">{{ teamName(match, 'A') }}</span>
+                    <input class="score-edit-input" type="number" min="0" [(ngModel)]="previewScoreA" title="Score A">
+                    <span class="score-edit-sep">–</span>
+                    <input class="score-edit-input" type="number" min="0" [(ngModel)]="previewScoreB" title="Score B">
+                    <span class="score-edit-team">{{ teamName(match, 'B') }}</span>
+                  </div>
+                  <!-- Filter / search -->
+                  <div class="preview-filters">
                     <div class="stats-search-wrap">
                       <mat-icon class="s-icon">search</mat-icon>
                       <input class="search-input" placeholder="Search player…"
@@ -162,116 +192,82 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
                       <button class="st-btn" [class.active]="statsTeamFilter() === teamName(match, 'A')" (click)="statsTeamFilter.set(teamName(match, 'A'))">{{ teamName(match, 'A') }}</button>
                       <button class="st-btn" [class.active]="statsTeamFilter() === teamName(match, 'B')" (click)="statsTeamFilter.set(teamName(match, 'B'))">{{ teamName(match, 'B') }}</button>
                     </div>
+                    <div class="stats-team-btns">
+                      <button class="st-btn" [class.active]="statsPosFilter() === null" (click)="statsPosFilter.set(null)">All Pos</button>
+                      @for (pos of ['GK','DEF','MID','FWD']; track pos) {
+                        <button class="st-btn st-pos-btn" [class.active]="statsPosFilter() === pos" (click)="statsPosFilter.set(pos)">{{ pos }}</button>
+                      }
+                    </div>
                   </div>
-                  <div class="stats-title">Player Stats — {{ filteredPlayerStats().length }}<span class="stats-total"> / {{ playerStats().length }}</span></div>
+                  <div class="preview-count">{{ filteredPreviewStats().length }} / {{ previewStats().length }} players</div>
                 </div>
-                <div class="table-wrap stats-scroll">
-                  <table mat-table [dataSource]="filteredPlayerStats()">
-                    <ng-container matColumnDef="player">
-                      <th mat-header-cell *matHeaderCellDef title="Player name and position">Player</th>
-                      <td mat-cell *matCellDef="let s">
-                        <div class="player-cell">
-                          <span class="pos-chip" [class]="s.player.position">{{ s.player.position }}</span>
-                          {{ s.player.name }}
+                </div> <!-- /preview-sticky-header -->
+
+                <!-- Editable player cards (scrollable) -->
+                <div class="preview-cards-scroll">
+                <div class="preview-cards">
+                  @for (s of filteredPreviewStats(); track s.playerId) {
+                    <div class="pv-card" [class.pv-dnp]="s.minutesPlayed === 0">
+                      <div class="pv-card-head">
+                        <span class="pos-chip" [class]="s.position">{{ s.position }}</span>
+                        <span class="pv-name">{{ s.playerName }}</span>
+                        <span class="pv-team-label">{{ s.teamName }}</span>
+                        <span class="pv-pts-badge">{{ calcPreviewPoints(s) }} pts</span>
+                      </div>
+                      <div class="pv-fields">
+                        <div class="pv-field">
+                          <label>Mins</label>
+                          <input type="number" min="0" max="120" [(ngModel)]="s.minutesPlayed" (ngModelChange)="triggerPreviewRefresh()">
                         </div>
-                      </td>
-                    </ng-container>
-                    <ng-container matColumnDef="mins">
-                      <th mat-header-cell *matHeaderCellDef title="Minutes played (+1 any, +1 extra for 60+)">Mins</th>
-                      <td mat-cell *matCellDef="let s">
-                        <div class="stat-cell">
-                          <span>{{ s.minutesPlayed }}</span>
-                          <span class="sp pos">+{{ s.minutesPlayed >= 60 ? 2 : (s.minutesPlayed > 0 ? 1 : 0) }}</span>
+                        <div class="pv-field">
+                          <label>⚽ Goals</label>
+                          <input type="number" min="0" [(ngModel)]="s.goals" (ngModelChange)="triggerPreviewRefresh()">
                         </div>
-                      </td>
-                    </ng-container>
-                    <ng-container matColumnDef="goals">
-                      <th mat-header-cell *matHeaderCellDef title="Goals scored (+9 GK / +7 DEF / +6 MID / +5 FWD)">⚽ Goals</th>
-                      <td mat-cell *matCellDef="let s">
-                        <div class="stat-cell">
-                          <span>{{ s.goals || 0 }}</span>
-                          @if ((s.goals || 0) > 0) {
-                            <span class="sp pos">+{{ (s.goals || 0) * goalPts(s.player?.position) }}</span>
-                          }
+                        <div class="pv-field">
+                          <label>🅰 Assists</label>
+                          <input type="number" min="0" [(ngModel)]="s.assists" (ngModelChange)="triggerPreviewRefresh()">
                         </div>
-                      </td>
-                    </ng-container>
-                    <ng-container matColumnDef="assists">
-                      <th mat-header-cell *matHeaderCellDef title="Assists (+3 pts each)">🅰️ Ast</th>
-                      <td mat-cell *matCellDef="let s">
-                        <div class="stat-cell">
-                          <span>{{ s.assists || 0 }}</span>
-                          @if ((s.assists || 0) > 0) {
-                            <span class="sp pos">+{{ (s.assists || 0) * 3 }}</span>
-                          }
+                        <div class="pv-field">
+                          <label>🟨 YC</label>
+                          <input type="number" min="0" [(ngModel)]="s.yellowCards" (ngModelChange)="triggerPreviewRefresh()">
                         </div>
-                      </td>
-                    </ng-container>
-                    <ng-container matColumnDef="yellowCards">
-                      <th mat-header-cell *matHeaderCellDef title="Yellow cards (−1 pt each)">🟨 YC</th>
-                      <td mat-cell *matCellDef="let s">
-                        <div class="stat-cell">
-                          <span>{{ s.yellowCards || 0 }}</span>
-                          @if ((s.yellowCards || 0) > 0) {
-                            <span class="sp neg">−{{ s.yellowCards }}</span>
-                          }
+                        <div class="pv-field">
+                          <label>🟥 RC</label>
+                          <input type="number" min="0" [(ngModel)]="s.redCards" (ngModelChange)="triggerPreviewRefresh()">
                         </div>
-                      </td>
-                    </ng-container>
-                    <ng-container matColumnDef="redCards">
-                      <th mat-header-cell *matHeaderCellDef title="Red cards (−2 pts each)">🟥 RC</th>
-                      <td mat-cell *matCellDef="let s">
-                        <div class="stat-cell">
-                          <span>{{ s.redCards || 0 }}</span>
-                          @if ((s.redCards || 0) > 0) {
-                            <span class="sp neg">−{{ (s.redCards || 0) * 2 }}</span>
-                          }
-                        </div>
-                      </td>
-                    </ng-container>
-                    <ng-container matColumnDef="cleanSheet">
-                      <th mat-header-cell *matHeaderCellDef title="Clean sheet: no goals conceded while player was on pitch, 60+ min required (+5 GK/DEF, +1 MID)">🛡️ CS</th>
-                      <td mat-cell *matCellDef="let s">
-                        <div class="stat-cell">
-                          <span [class.cs-yes]="s.cleanSheet && s.minutesPlayed >= 60">{{ s.cleanSheet && s.minutesPlayed >= 60 ? '✓' : '' }}</span>
-                          @if (s.cleanSheet && s.minutesPlayed >= 60) {
-                            <span class="sp pos">+{{ csPts(s.player?.position) }}</span>
-                          }
-                        </div>
-                      </td>
-                    </ng-container>
-                    <ng-container matColumnDef="saves">
-                      <th mat-header-cell *matHeaderCellDef title="Saves — GK only (every 3 saves = +1 pt)">🧤 Sv</th>
-                      <td mat-cell *matCellDef="let s">
-                        <div class="stat-cell">
-                          <span>{{ s.saves || 0 }}</span>
-                          @if (s.player?.position === 'GK' && (s.saves || 0) >= 3) {
-                            <span class="sp pos">+{{ savesBonus(s.saves) }}</span>
-                          }
-                        </div>
-                      </td>
-                    </ng-container>
-                    <ng-container matColumnDef="sot">
-                      <th mat-header-cell *matHeaderCellDef title="FWD only: shots on target (every 2 = +1 pt)">🎯 SoT</th>
-                      <td mat-cell *matCellDef="let s">
-                        @if (s.player?.position === 'FWD') {
-                          <div class="stat-cell">
-                            <span>{{ s.shotsOnTarget || 0 }}</span>
-                            @if (sotBonus(s.shotsOnTarget) > 0) {
-                              <span class="sp pos">+{{ sotBonus(s.shotsOnTarget) }}</span>
-                            }
+                        @if (s.position === 'GK' || s.position === 'DEF') {
+                          <div class="pv-field pv-field-cs">
+                            <label>🛡 CS</label>
+                            <input type="checkbox" [(ngModel)]="s.cleanSheet" (ngModelChange)="triggerPreviewRefresh()">
+                          </div>
+                          <div class="pv-field">
+                            <label>Goals Con.</label>
+                            <input type="number" min="0" [(ngModel)]="s.goalsConceded" (ngModelChange)="triggerPreviewRefresh()">
                           </div>
                         }
-                      </td>
-                    </ng-container>
-                    <ng-container matColumnDef="points">
-                      <th mat-header-cell *matHeaderCellDef title="Total fantasy points earned this match">Pts</th>
-                      <td mat-cell *matCellDef="let s" class="pts-cell">{{ calcPoints(s) }}</td>
-                    </ng-container>
-                    <tr mat-header-row *matHeaderRowDef="statCols; sticky: true"></tr>
-                    <tr mat-row *matRowDef="let row; columns: statCols;"></tr>
-                  </table>
+                        @if (s.position === 'GK') {
+                          <div class="pv-field">
+                            <label>🧤 Saves</label>
+                            <input type="number" min="0" [(ngModel)]="s.saves" (ngModelChange)="triggerPreviewRefresh()">
+                          </div>
+                        }
+                        @if (s.position === 'FWD') {
+                          <div class="pv-field">
+                            <label>🎯 SoT</label>
+                            <input type="number" min="0" [(ngModel)]="s.shotsOnTarget" (ngModelChange)="triggerPreviewRefresh()">
+                          </div>
+                        }
+                        @if (s.position === 'MID') {
+                          <div class="pv-field pv-field-cs">
+                            <label>🛡 CS</label>
+                            <input type="checkbox" [(ngModel)]="s.cleanSheet" (ngModelChange)="triggerPreviewRefresh()">
+                          </div>
+                        }
+                      </div>
+                    </div>
+                  }
                 </div>
+                </div> <!-- /preview-cards-scroll -->
               </div>
             }
           </mat-card>
@@ -988,6 +984,76 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
     .espn-btn { display:inline-flex; align-items:center; gap:7px; padding:0 20px; height:40px; border:none; border-radius:20px; background:linear-gradient(135deg,#1a237e,#3949ab); color:#fff; font-size:13px; font-weight:700; letter-spacing:0.4px; cursor:pointer; box-shadow:0 3px 8px rgba(26,35,126,0.35); transition:box-shadow .15s, transform .1s; }
     .espn-btn:hover:not(:disabled) { box-shadow:0 5px 14px rgba(26,35,126,0.45); transform:translateY(-1px); }
     .espn-btn:disabled { background:linear-gradient(135deg,#bdbdbd,#9e9e9e); box-shadow:none; cursor:not-allowed; transform:none; }
+    .espn-btn-refetch { background:linear-gradient(135deg,#37474f,#546e7a) !important; }
+    .save-pts-btn { display:inline-flex; align-items:center; gap:7px; padding:0 20px; height:40px; border:none; border-radius:20px; background:linear-gradient(135deg,#1b5e20,#388e3c); color:#fff; font-size:13px; font-weight:700; cursor:pointer; box-shadow:0 3px 8px rgba(27,94,32,0.35); transition:box-shadow .15s,transform .1s; }
+    .save-pts-btn:hover:not(:disabled) { box-shadow:0 5px 14px rgba(27,94,32,0.45); transform:translateY(-1px); }
+    .save-pts-btn:disabled { background:linear-gradient(135deg,#bdbdbd,#9e9e9e); box-shadow:none; cursor:not-allowed; }
+    .discard-btn { display:inline-flex; align-items:center; height:40px; padding:0 16px; border:1px solid #e0e0e0; border-radius:20px; background:#fff; color:#666; font-size:12px; font-weight:600; cursor:pointer; transition:background .15s; }
+    .discard-btn:hover { background:#f5f5f5; color:#c62828; border-color:#c62828; }
+
+    /* Preview section — card grows to fill viewport, header locks, cards scroll */
+    .match-card-preview {
+      display: flex !important;
+      flex-direction: column;
+      max-height: calc(100vh - 120px);
+      overflow: hidden;
+      background: #fff;
+    }
+    .preview-section { margin-top:16px; border-top:2px solid #e3f2fd; padding-top:16px; flex:1; min-height:0; display:flex; flex-direction:column; overflow:hidden; }
+    .preview-sticky-header { flex-shrink:0; background:#fff; padding-bottom:8px; touch-action:none; }
+    .preview-cards-scroll { flex:1; min-height:0; overflow-y:auto; padding-right:2px; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; }
+    .preview-header { margin-bottom:14px; display:flex; flex-direction:column; gap:10px; }
+    .score-edit-row { display:flex; align-items:center; gap:8px; background:#f8f9fa; border-radius:10px; padding:10px 14px; flex-wrap:wrap; }
+    .score-edit-team { font-size:13px; font-weight:700; color:#1a237e; flex:1; }
+    .score-edit-team:last-of-type { text-align:right; }
+    .score-edit-input { width:52px; height:36px; text-align:center; font-size:20px; font-weight:800; color:#1a237e; border:2px solid #3949ab; border-radius:8px; outline:none; }
+    .score-edit-sep { font-size:20px; font-weight:800; color:#666; }
+    .preview-filters { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .preview-count { font-size:12px; color:#888; font-weight:600; }
+
+    /* Player edit cards */
+    .preview-cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:12px; }
+    .pv-card { border:1px solid #e0e0e0; border-radius:12px; background:#fff; overflow:hidden; transition:box-shadow .15s; }
+    .pv-card:hover { box-shadow:0 4px 12px rgba(0,0,0,0.1); }
+    .pv-card.pv-dnp { opacity:0.55; background:#fafafa; }
+    .pv-card-head { display:flex; align-items:center; gap:8px; padding:10px 12px; background:#f5f7ff; border-bottom:1px solid #e8ecff; }
+    .pv-name { font-size:13px; font-weight:700; color:#1a237e; flex:1; }
+    .pv-team-label { font-size:10px; color:#888; font-weight:600; }
+    .pv-pts-badge { background:#1a237e; color:#fff; font-size:12px; font-weight:800; padding:2px 8px; border-radius:10px; white-space:nowrap; }
+    .pv-fields { display:flex; flex-wrap:wrap; gap:6px; padding:10px 12px; }
+    .pv-field { display:flex; flex-direction:column; align-items:center; gap:3px; min-width:52px; }
+    .pv-field label { font-size:10px; color:#888; font-weight:600; white-space:nowrap; }
+    .pv-field input[type=number] { width:48px; height:32px; text-align:center; font-size:14px; font-weight:700; border:1.5px solid #e0e0e0; border-radius:6px; outline:none; transition:border-color .15s; }
+    .pv-field input[type=number]:focus { border-color:#3949ab; }
+    .pv-field-cs { min-width:36px; }
+    .pv-field input[type=checkbox] { width:20px; height:20px; cursor:pointer; accent-color:#1a237e; }
+
+    @media (max-width:600px) {
+      .preview-cards { grid-template-columns:1fr; }
+      .score-edit-row { justify-content:center; }
+      .score-edit-team { flex:none; font-size:12px; }
+      .save-pts-btn { font-size:12px; padding:0 14px; }
+      .pv-fields { gap:4px; }
+      .pv-field input[type=number] { width:40px; font-size:13px; }
+      .match-card-preview {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 10;
+        max-height: none;
+        border-radius: 0;
+        overflow: hidden;
+        margin: 0;
+        overscroll-behavior: none;
+      }
+      /* When preview is open, admin-content becomes the positioning parent and stops scrolling */
+      .admin-content:has(.match-card-preview) {
+        position: relative;
+        overflow: hidden;
+      }
+    }
     .espn-icon { font-size:18px; width:18px; height:18px; }
     .espn-spinner { display:inline-block; }
     .result-msg { text-align:center; color:#2e7d32; margin-top:8px; font-size:13px; font-weight:500; }
@@ -1006,6 +1072,7 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
     .st-btn { border:1.5px solid #e0e0e0; background:#fff; color:#555; font-size:11px; font-weight:700; padding:3px 10px; border-radius:12px; cursor:pointer; transition:all 0.12s; white-space:nowrap; }
     .st-btn:hover { border-color:#1a237e; color:#1a237e; }
     .st-btn.active { background:#1a237e; color:#fff; border-color:#1a237e; }
+    .st-pos-btn.active { background:#37474f; border-color:#37474f; }
     .table-wrap { overflow-x:auto; }
     .stats-scroll { max-height:380px; overflow-y:auto; overflow-x:auto; }
     table { width:100%; min-width:600px; }
@@ -1519,6 +1586,28 @@ export class AdminScoresComponent implements OnInit {
   scoreSearchQuery = signal('');
   statsPlayerSearch = signal('');
   statsTeamFilter = signal<string | null>(null);
+  statsPosFilter  = signal<string | null>(null);
+
+  // Preview / edit flow
+  previewing  = signal<number | null>(null);
+  saving      = signal<number | null>(null);
+  previewMatchId = signal<number | null>(null);
+  previewStats   = signal<any[]>([]);
+  previewScoreA  = 0;
+  previewScoreB  = 0;
+  previewRefresh = signal(0); // bump to force computed recalc
+
+  filteredPreviewStats = computed(() => {
+    this.previewRefresh(); // track changes
+    let list = this.previewStats();
+    const search = this.statsPlayerSearch().toLowerCase();
+    const team   = this.statsTeamFilter();
+    const pos    = this.statsPosFilter();
+    if (search) list = list.filter((s: any) => s.playerName.toLowerCase().includes(search) || s.teamName.toLowerCase().includes(search));
+    if (team)   list = list.filter((s: any) => s.teamName === team);
+    if (pos)    list = list.filter((s: any) => s.position === pos);
+    return list;
+  });
 
   filteredPlayerStats = computed(() => {
     const q = this.statsPlayerSearch().trim().toLowerCase();
@@ -1565,11 +1654,15 @@ export class AdminScoresComponent implements OnInit {
   locEditDisplayName = '';
   locSaving          = signal(false);
 
-  finishedMatches = computed(() =>
-    [...this.matches()]
-      .filter(m => m.stage !== 'GROUP')
-      .sort((a, b) => new Date(a.matchTime).getTime() - new Date(b.matchTime).getTime())
-  );
+  finishedMatches = computed(() => {
+    const all = [...this.matches()].sort((a, b) =>
+      new Date(a.matchTime).getTime() - new Date(b.matchTime).getTime()
+    );
+    // Knockout matches only — completed ones stay permanently, pending ones shown for upcoming fetch
+    const knockoutCompleted = all.filter(m => m.stage !== 'GROUP' && m.status === 'COMPLETED');
+    const knockoutPending = all.filter(m => m.stage !== 'GROUP' && m.status !== 'COMPLETED');
+    return [...knockoutCompleted, ...knockoutPending];
+  });
 
   filteredMatches = computed(() => {
     const raw = this.scoreSearchQuery().trim().toLowerCase();
@@ -1723,50 +1816,84 @@ export class AdminScoresComponent implements OnInit {
   }
 
 
-  fetchFromEspn(matchId: number) {
-    this.updating.set(matchId);
-    this.globalLoading.set(true);
-    this.loadingMsg.set('Fetching player stats from ESPN...');
+  previewFromEspn(match: Match) {
+    const matchId = match.id;
+    this.previewing.set(matchId);
     this.resultMsg.set('');
-    this.api.adminUpdateScores(matchId).subscribe({
-      next: res => {
-        this.updating.set(null);
-        this.globalLoading.set(false);
+    this.resultMatchId.set(matchId);
+    this.statsPlayerSearch.set('');
+    this.statsTeamFilter.set(null);
+    this.statsPosFilter.set(null);
+    this.api.adminPreviewScores(matchId).subscribe({
+      next: (res: any) => {
+        this.previewing.set(null);
         if (res.status === 'success') {
-          this.resultMsg.set(`✅ ${res.scoreA} – ${res.scoreB} · ${res.statsCount} player stats fetched`);
-          this.resultMatchId.set(matchId);
-          this.loadMatches();
-          this.loadStats(matchId);
+          this.previewStats.set(res.stats);
+          this.previewScoreA = res.scoreA;
+          this.previewScoreB = res.scoreB;
+          this.previewMatchId.set(matchId);
+          this.previewRefresh.update(n => n + 1);
+          this.resultMsg.set(`✅ ${res.stats.length} players fetched — review and edit below, then click Save & Calculate Points`);
         } else {
           this.resultMsg.set('❌ ' + res.message);
-          this.resultMatchId.set(matchId);
         }
       },
-      error: err => {
-        this.updating.set(null);
-        this.globalLoading.set(false);
+      error: (err: any) => {
+        this.previewing.set(null);
         this.resultMsg.set('❌ ' + (err.error?.message || 'ESPN fetch failed'));
-        this.resultMatchId.set(matchId);
       }
     });
   }
 
-  recalculate(matchId: number) {
-    this.globalLoading.set(true);
-    this.loadingMsg.set('Recalculating fantasy points...');
-    this.api.adminUpdateScores(matchId).subscribe({
-      next: res => {
-        this.globalLoading.set(false);
-        this.resultMsg.set(res.status === 'success'
-          ? `✅ Points recalculated — ${res.statsCount} players`
-          : '❌ ' + res.message);
-        this.resultMatchId.set(matchId);
+  saveAndCalculate(matchId: number) {
+    this.saving.set(matchId);
+    this.resultMsg.set('');
+    this.api.adminSaveScores(matchId, this.previewScoreA, this.previewScoreB, this.previewStats()).subscribe({
+      next: (res: any) => {
+        this.saving.set(null);
+        if (res.status === 'success') {
+          this.resultMsg.set(`✅ Saved & calculated — ${res.statsCount} players · Score: ${res.scoreA}–${res.scoreB}`);
+          this.resultMatchId.set(matchId);
+          this.previewMatchId.set(null);
+          this.previewStats.set([]);
+          this.loadMatches();
+        } else {
+          this.resultMsg.set('❌ ' + (res.error || 'Save failed'));
+        }
       },
-      error: err => {
-        this.globalLoading.set(false);
-        this.resultMsg.set('❌ ' + (err.error?.message || 'Recalculation failed'));
-        this.resultMatchId.set(matchId);
+      error: (err: any) => {
+        this.saving.set(null);
+        this.resultMsg.set('❌ ' + (err.error?.error || 'Save failed'));
       }
+    });
+  }
+
+  discardPreview() {
+    this.previewMatchId.set(null);
+    this.previewStats.set([]);
+    this.resultMsg.set('');
+    this.statsPlayerSearch.set('');
+    this.statsTeamFilter.set(null);
+    this.statsPosFilter.set(null);
+  }
+
+  triggerPreviewRefresh() {
+    this.previewRefresh.update(n => n + 1);
+  }
+
+  calcPreviewPoints(s: any): number {
+    return this.calcPoints({
+      minutesPlayed: s.minutesPlayed,
+      goals: s.goals,
+      assists: s.assists,
+      yellowCards: s.yellowCards,
+      redCards: s.redCards,
+      ownGoals: s.ownGoals ?? 0,
+      cleanSheet: s.cleanSheet,
+      goalsConceded: s.goalsConceded,
+      saves: s.saves,
+      shotsOnTarget: s.shotsOnTarget,
+      player: { position: s.position }
     });
   }
 
