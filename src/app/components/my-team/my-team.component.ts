@@ -1416,9 +1416,8 @@ export class MyTeamComponent implements OnInit {
         .sort((a, b) => new Date(a.matchTime).getTime() - new Date(b.matchTime).getTime());
       this.nextMatch.set(upcoming[0] ?? null);
       const userId = this.auth.getUserId();
-      const stage  = upcoming[0]?.stage ?? 'R32';
       if (userId) {
-        this.api.getTransferRecord(+userId, stage).subscribe({ next: rec => this.transferRecord.set(rec), error: () => {} });
+        this.api.getTransferRecord(+userId, this.currentStage()).subscribe({ next: rec => this.transferRecord.set(rec), error: () => {} });
       }
     });
 
