@@ -246,7 +246,7 @@ const BENCH_ROW: SlotRef[] = [
                       </div>
                     }
                     <div class="p-card-icons">
-                      <button class="icon-btn minus-btn" (click)="$event.stopPropagation(); removeSlot(slot)" title="Remove">
+                      <button class="icon-btn minus-btn" [disabled]="!windowOpen()" (click)="$event.stopPropagation(); removeSlot(slot)" title="Remove">
                         <span class="icon-circle minus-circle">−</span>
                       </button>
                       <div class="cap-badges">
@@ -298,7 +298,7 @@ const BENCH_ROW: SlotRef[] = [
                   }
                   <div class="bench-badge">SUB</div>
                   <div class="p-card-icons">
-                    <button class="icon-btn minus-btn" (click)="$event.stopPropagation(); removeSlot(slot)" title="Remove">
+                    <button class="icon-btn minus-btn" [disabled]="!windowOpen()" (click)="$event.stopPropagation(); removeSlot(slot)" title="Remove">
                       <span class="icon-circle minus-circle">−</span>
                     </button>
                     <div class="cap-badges">
