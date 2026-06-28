@@ -405,7 +405,7 @@ const BENCH_ROW: SlotRef[] = [
           <div class="pool-empty">No players match your filter</div>
         }
         @for (p of filteredPool(); track p.id) {
-          <div class="pool-row" [class.is-picked]="inSquad(p.id)">
+          <div class="pool-row" [class.is-picked]="inSquad(p.id)" [class.pos-mismatch]="!!activeSlot() && p.position !== activeSlot()!.pos && !inSquad(p.id)">
             <div class="pr-pos-badge" [style.background]="posColor(p.position)">{{ p.position }}</div>
             <div class="pr-info">
               <div class="pr-name">{{ p.name }}</div>
@@ -745,6 +745,7 @@ const BENCH_ROW: SlotRef[] = [
     .pool-row { display: flex; align-items: center; gap: 8px; padding: 7px 12px; border-bottom: 1px solid #111827; cursor: pointer; transition: background .1s; }
     .pool-row:hover { background: #111827; }
     .pool-row.is-picked { background: #0a1628; }
+    .pool-row.pos-mismatch { opacity: .3; pointer-events: none; }
     .pr-pos-badge { width: 34px; height: 34px; border-radius: 6px; color: #fff; font-size: 8.5px; font-weight: 900; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
     .pr-info { flex: 1; min-width: 0; }
     .pr-name { color: #f3f4f6; font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1413,6 +1414,8 @@ export class MyTeamComponent implements OnInit {
     if (this.inSquad(p.id)) return false;
     if (this.remainingBudget() < p.price) return false;
     if (this.posQuotaFull(p.position)) return false;
+    const slot = this.activeSlot();
+    if (slot && p.position !== slot.pos) return false;
     return true;
   }
 
