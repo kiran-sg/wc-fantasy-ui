@@ -122,7 +122,7 @@ const BENCH_ROW: SlotRef[] = [
       <div class="hb-transfers hb-transfers-unlimited">
         <span class="tf-count">∞ free</span>
         @if (pendingTransfers() > 0) {
-          <span class="tf-stage">{{ pendingTransfers() }} pending</span>
+          <span class="tf-stage">{{ pendingTransfers() }} unsaved</span>
         } @else {
           <span class="tf-stage">{{ stageLabel() }}</span>
         }
@@ -173,7 +173,7 @@ const BENCH_ROW: SlotRef[] = [
               <div class="tp-val" [class.penalty]="transferPenalty() > 0">
                 {{ pendingTransfers() }}
               </div>
-              <div class="tp-lbl">Pending</div>
+              <div class="tp-lbl">Unsaved</div>
             </div>
           }
           @if (transferPenalty() > 0) {
@@ -203,7 +203,7 @@ const BENCH_ROW: SlotRef[] = [
           @if (pendingTransfers() > 0) {
             <div class="tp-stat">
               <div class="tp-val">{{ pendingTransfers() }}</div>
-              <div class="tp-lbl">Pending</div>
+              <div class="tp-lbl">Unsaved</div>
             </div>
             <div class="tp-free-pill">Free ✓</div>
           }
