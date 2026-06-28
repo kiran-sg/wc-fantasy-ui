@@ -1616,9 +1616,9 @@ export class MyTeamComponent implements OnInit {
     const players = this.allPlayers();
     const limit   = this.countryLimitForStage();
 
-    // Sorted pools per position: descending price
+    // Sorted pools per position: descending price, exclude eliminated teams
     const byPos: Record<string, Player[]> = { GK: [], DEF: [], MID: [], FWD: [] };
-    players.forEach(p => byPos[p.position]?.push(p));
+    players.filter(p => !p.team?.eliminated).forEach(p => byPos[p.position]?.push(p));
     Object.values(byPos).forEach(arr => arr.sort((a, b) => b.price - a.price));
 
     // Cheapest available price per position (fallback 5m) — used to reserve budget for unfilled slots
@@ -2009,6 +2009,7 @@ export class MyTeamComponent implements OnInit {
 
   canAdd(p: Player): boolean {
     if (this.inSquad(p.id)) return false;
+    if (p.team?.eliminated) return false;
     if (this.remainingBudget() < p.price) return false;
     if (this.posQuotaFull(p.position)) return false;
     const slot = this.activeSlot();
