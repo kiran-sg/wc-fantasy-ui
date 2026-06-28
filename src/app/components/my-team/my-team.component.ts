@@ -118,6 +118,16 @@ const BENCH_ROW: SlotRef[] = [
         }
       </div>
     }
+    @if (existingTeam() && isUnlimitedStage()) {
+      <div class="hb-transfers hb-transfers-unlimited">
+        <span class="tf-count">∞ free</span>
+        @if (pendingTransfers() > 0) {
+          <span class="tf-stage">{{ pendingTransfers() }} pending</span>
+        } @else {
+          <span class="tf-stage">{{ stageLabel() }}</span>
+        }
+      </div>
+    }
     @if (squadEliminatedCount() > 0) {
       <div class="hb-elim-warn">
         <span class="hb-elim-icon">⚠️</span>
@@ -132,7 +142,7 @@ const BENCH_ROW: SlotRef[] = [
     <!-- ── LEFT: PITCH ── -->
     <div class="pitch-col" (click)="$event.stopPropagation()">
 
-      <!-- Transfer panel — shown for limited stages (R32 onwards) -->
+      <!-- Transfer panel — limited stages (R32 onwards) -->
       @if (existingTeam() && !isUnlimitedStage()) {
         <div class="transfer-panel">
           <div class="tp-stage-col">
@@ -154,7 +164,7 @@ const BENCH_ROW: SlotRef[] = [
           </div>
           <div class="tp-stat">
             <div class="tp-val free" [class.zero]="transfersRemaining() === 0">
-              {{ isUnlimitedStage() ? '∞' : transfersRemaining() }}
+              {{ transfersRemaining() }}
             </div>
             <div class="tp-lbl">Free Left</div>
           </div>
@@ -169,6 +179,32 @@ const BENCH_ROW: SlotRef[] = [
           @if (transferPenalty() > 0) {
             <div class="tp-penalty-pill">−{{ transferPenalty() }} pts!</div>
           } @else if (pendingTransfers() > 0 && transfersRemaining() > 0) {
+            <div class="tp-free-pill">Free ✓</div>
+          }
+        </div>
+      }
+
+      <!-- Transfer panel — unlimited stage (GROUP) -->
+      @if (existingTeam() && isUnlimitedStage()) {
+        <div class="transfer-panel">
+          <div class="tp-stage-col">
+            <span class="tp-stage-badge">{{ stageLabel() }}</span>
+            <span class="tp-window-lbl">Unlimited free transfers</span>
+          </div>
+          <div class="tp-divider"></div>
+          <div class="tp-stat">
+            <div class="tp-val free">∞</div>
+            <div class="tp-lbl">Allowed</div>
+          </div>
+          <div class="tp-stat">
+            <div class="tp-val">{{ transferRecord()?.transfersMade ?? 0 }}</div>
+            <div class="tp-lbl">Done</div>
+          </div>
+          @if (pendingTransfers() > 0) {
+            <div class="tp-stat">
+              <div class="tp-val">{{ pendingTransfers() }}</div>
+              <div class="tp-lbl">Pending</div>
+            </div>
             <div class="tp-free-pill">Free ✓</div>
           }
         </div>
@@ -325,7 +361,7 @@ const BENCH_ROW: SlotRef[] = [
           <span class="cap-tag c-tag">C: {{ captainName() ?? '—' }}</span>
           <span class="cap-tag v-tag">V: {{ vcName() ?? '—' }}</span>
         </div>
-        <select class="formation-select" [ngModel]="formation()" (ngModelChange)="changeFormation($event)">
+        <select class="formation-select" [ngModel]="selectedFormation()" (ngModelChange)="changeFormation($event)">
           @for (f of FORMATIONS; track f) {
             <option [value]="f">{{ f }}</option>
           }
@@ -432,6 +468,170 @@ const BENCH_ROW: SlotRef[] = [
 
   </div>
 </div>
+
+<!-- ── Restore Saved Team Dialog ────────────────────────────────────── -->
+@if (restoreDlg(); as rdlg) {
+  <div class="fm-backdrop" (click)="restoreDlgCancel()">
+    <div class="fm-dialog fm-dialog-sm" (click)="$event.stopPropagation()">
+
+      <div class="fm-header">
+        <div class="fm-header-left">
+          <span class="fm-title">Restore Saved Team</span>
+          <div class="fm-formation-row">
+            <span class="fm-badge fm-badge-old">{{ formation() }}</span>
+            <span class="fm-arrow">→</span>
+            <span class="fm-badge fm-badge-new">{{ rdlg.savedFormation }}</span>
+          </div>
+        </div>
+        <button class="fm-close-btn" (click)="restoreDlgCancel()">✕</button>
+      </div>
+
+      <div class="fm-body">
+        <div class="fm-section fm-section-warn fm-restore-body">
+          <div class="fm-restore-icon">↩</div>
+          <p class="fm-restore-msg">
+            You have unsaved changes. Going back to <strong>{{ rdlg.savedFormation }}</strong> will restore your last saved squad exactly as it was.
+          </p>
+          <p class="fm-restore-sub">
+            All unsaved formation changes and transfers will be discarded — no transfer deductions will apply.
+          </p>
+        </div>
+      </div>
+
+      <div class="fm-actions">
+        <button class="fm-btn fm-btn-cancel" (click)="restoreDlgCancel()">Keep Changes</button>
+        <button class="fm-btn fm-btn-restore" (click)="restoreDlgConfirm()">Yes, Restore</button>
+      </div>
+
+    </div>
+  </div>
+}
+
+<!-- ── Formation Change Dialog ─────────────────────────────────────── -->
+@if (fmDlg(); as dlg) {
+  <div class="fm-backdrop" (click)="fmDlgCancel()">
+    <div class="fm-dialog" (click)="$event.stopPropagation()">
+
+      <!-- Header -->
+      <div class="fm-header">
+        <div class="fm-header-left">
+          <span class="fm-title">Formation Change</span>
+          <div class="fm-formation-row">
+            <span class="fm-badge fm-badge-old">{{ dlg.from }}</span>
+            <span class="fm-arrow">→</span>
+            <span class="fm-badge fm-badge-new">{{ dlg.to }}</span>
+          </div>
+        </div>
+        <button class="fm-close-btn" (click)="fmDlgCancel()">✕</button>
+      </div>
+
+      <div class="fm-body">
+
+        <!-- Info note when unsaved changes were discarded before computing diff -->
+        @if (dlg.restoredFromSaved) {
+          <div class="fm-info-note">
+            ℹ️ Your unsaved changes were discarded. Player conflicts below are compared against your <strong>saved team ({{ dlg.from }})</strong>, not your previous unsaved state.
+          </div>
+        }
+
+        <!-- Conflicts: user picks who to drop per position -->
+        @for (conflict of dlg.conflicts; track conflict.pos; let ci = $index) {
+          <div class="fm-section fm-section-conflict">
+            <div class="fm-section-title">
+              <span class="fm-pos-pill" [style.background]="posColor(conflict.pos)">{{ conflict.pos }}</span>
+              Squad has too many {{ conflict.pos }}s for <strong>{{ dlg.to }}</strong>
+            </div>
+            <div class="fm-drop-info">
+              New {{ conflict.pos }} quota: <strong>{{ conflict.newQuota }}</strong> &nbsp;·&nbsp;
+              Select <strong>{{ conflict.dropCount }}</strong> player{{ conflict.dropCount > 1 ? 's' : '' }} to remove
+              <span class="fm-drop-counter"
+                [class.fm-drop-done]="conflict.selectedDrops.size === conflict.dropCount">
+                {{ conflict.selectedDrops.size }}/{{ conflict.dropCount }} selected
+              </span>
+            </div>
+            <div class="fm-candidates">
+              @for (c of conflict.candidates; track c.id) {
+                @let isSelected = conflict.selectedDrops.has(c.id);
+                @let maxReached = conflict.selectedDrops.size >= conflict.dropCount && !isSelected;
+                <button class="fm-candidate-btn"
+                  [class.fm-cand-selected]="isSelected"
+                  [class.fm-cand-disabled]="maxReached"
+                  [disabled]="maxReached"
+                  (click)="fmDlgToggleDrop(ci, c.id)">
+                  <span class="fm-pos-dot" [style.background]="posColor(conflict.pos)"></span>
+                  <span class="fm-cand-name">{{ c.name }}</span>
+                  <span class="fm-cand-tag" [class.bench-tag]="!c.isXI">{{ c.isXI ? 'XI' : 'Bench' }}</span>
+                  @if (isSelected) {
+                    <span class="fm-cand-drop-label">✕ DROP</span>
+                  }
+                </button>
+              }
+            </div>
+
+            <!-- Bench-move sub-prompt: appears once drops are fully chosen and XI still exceeds new XI slots -->
+            @let benchMoveNeeded = fmBenchMoveCountFor(conflict);
+            @if (conflict.selectedDrops.size === conflict.dropCount && benchMoveNeeded > 0) {
+              <div class="fm-bench-move-section">
+                <div class="fm-drop-info fm-bench-move-title">
+                  <span>Choose <strong>{{ benchMoveNeeded }}</strong> {{ conflict.pos }} player{{ benchMoveNeeded > 1 ? 's' : '' }} to move to bench</span>
+                  <span class="fm-drop-counter"
+                    [class.fm-drop-done]="conflict.selectedBenchMoves.size === benchMoveNeeded">
+                    {{ conflict.selectedBenchMoves.size }}/{{ benchMoveNeeded }} selected
+                  </span>
+                </div>
+                <div class="fm-candidates">
+                  @for (c of conflict.candidates; track c.id) {
+                    @if (c.isXI && !conflict.selectedDrops.has(c.id)) {
+                      @let isMoveSelected = conflict.selectedBenchMoves.has(c.id);
+                      @let moveFull = conflict.selectedBenchMoves.size >= benchMoveNeeded && !isMoveSelected;
+                      <button class="fm-candidate-btn fm-candidate-bench-move"
+                        [class.fm-cand-selected]="isMoveSelected"
+                        [class.fm-cand-disabled]="moveFull"
+                        [disabled]="moveFull"
+                        (click)="fmDlgToggleBenchMove(ci, c.id)">
+                        <span class="fm-pos-dot" [style.background]="posColor(conflict.pos)"></span>
+                        <span class="fm-cand-name">{{ c.name }}</span>
+                        <span class="fm-cand-tag">XI</span>
+                        @if (isMoveSelected) {
+                          <span class="fm-cand-drop-label fm-bench-move-label">→ BENCH</span>
+                        }
+                      </button>
+                    }
+                  }
+                </div>
+              </div>
+            }
+
+          </div>
+        }
+
+        <!-- Empty slots warning (transfers needed) -->
+        @if (dlg.emptySlots.length > 0) {
+          <div class="fm-section fm-section-warn">
+            <div class="fm-section-title">⚠️ New empty slots — transfers required to fill them</div>
+            @for (s of dlg.emptySlots; track s.pos) {
+              <div class="fm-empty-row">
+                <span class="fm-pos-dot" [style.background]="posColor(s.pos)"></span>
+                <span>{{ s.count }} × {{ s.pos }} slot{{ s.count > 1 ? 's' : '' }} will be empty</span>
+                <span class="fm-transfer-badge">+{{ s.count }} transfer{{ s.count > 1 ? 's' : '' }}</span>
+              </div>
+            }
+          </div>
+        }
+
+      </div>
+
+      <!-- Actions -->
+      <div class="fm-actions">
+        <button class="fm-btn fm-btn-cancel" (click)="fmDlgCancel()">Cancel</button>
+        <button class="fm-btn fm-btn-confirm" [disabled]="!fmDlgCanConfirm()" (click)="fmDlgConfirm()">
+          Confirm Change
+        </button>
+      </div>
+
+    </div>
+  </div>
+}
   `,
   styles: [`
     :host { display: block; }
@@ -465,6 +665,7 @@ const BENCH_ROW: SlotRef[] = [
     .hb-pill-lbl { color: #6b7280; font-size: 9px; text-transform: uppercase; margin-top: 2px; }
     .hb-transfers { background: #052e16; border: 1px solid #16a34a; border-radius: 10px; padding: 5px 12px; display: flex; flex-direction: column; align-items: center; }
     .hb-transfers.penalty { background: #2d0a0a; border-color: #ef4444; }
+    .hb-transfers-unlimited { background: #0a1f3d; border-color: #3b82f6; }
     .tf-count   { color: #fff; font-size: 11px; font-weight: 700; }
     .tf-free    { color: #4ade80; font-size: 10px; font-weight: 600; }
     .tf-penalty { color: #f87171; font-size: 10px; font-weight: 700; }
@@ -801,6 +1002,184 @@ const BENCH_ROW: SlotRef[] = [
       .pitch-toolbar { gap: 4px; }
       .key-items { gap: 6px; }
     }
+
+    /* ── Formation Change Dialog ──────────────────────────────────────────── */
+    .fm-backdrop {
+      position: fixed; inset: 0; z-index: 1000;
+      background: rgba(0,0,0,0.55);
+      display: flex; align-items: center; justify-content: center;
+      padding: 16px;
+    }
+    .fm-dialog {
+      background: #fff; border-radius: 16px;
+      width: 100%; max-width: 480px;
+      max-height: 88vh; display: flex; flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.35);
+    }
+    .fm-header {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      padding: 16px 20px 12px;
+      border-bottom: 1px solid #e0e0e0;
+      gap: 12px;
+    }
+    .fm-header-left { display: flex; flex-direction: column; gap: 8px; }
+    .fm-title { font-size: 17px; font-weight: 700; color: #1a237e; line-height: 1; }
+    .fm-formation-row { display: flex; align-items: center; gap: 10px; }
+    .fm-badge { font-size: 15px; font-weight: 800; padding: 4px 14px; border-radius: 20px; letter-spacing: 1px; }
+    .fm-badge-old { background: #eeeeee; color: #555; }
+    .fm-badge-new { background: #1a237e; color: #fff; }
+    .fm-arrow { font-size: 18px; color: #9e9e9e; }
+    .fm-close-btn {
+      background: none; border: none; font-size: 18px; color: #9e9e9e;
+      cursor: pointer; padding: 0 4px; line-height: 1; flex-shrink: 0;
+    }
+    .fm-close-btn:hover { color: #333; }
+
+    .fm-body { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
+
+    .fm-section { display: flex; flex-direction: column; gap: 10px; }
+    .fm-section-title {
+      font-size: 13px; font-weight: 600; color: #333;
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+    .fm-pos-pill {
+      font-size: 10px; font-weight: 800; color: #fff;
+      padding: 2px 8px; border-radius: 10px; flex-shrink: 0;
+    }
+    .fm-section-conflict { background: #fff8e1; border: 1px solid #ffe082; border-radius: 12px; padding: 14px; }
+    .fm-section-warn     { background: #fff3e0; border: 1px solid #ffcc80; border-radius: 12px; padding: 14px; }
+
+    .fm-drop-info {
+      font-size: 12px; color: #555;
+      display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    }
+    .fm-drop-counter {
+      margin-left: auto; font-size: 11px; font-weight: 700;
+      background: #ffcdd2; color: #c62828;
+      padding: 2px 8px; border-radius: 10px;
+    }
+    .fm-drop-counter.fm-drop-done { background: #c8e6c9; color: #2e7d32; }
+
+    .fm-pos-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+    .fm-candidates { display: flex; flex-direction: column; gap: 6px; }
+    .fm-candidate-btn {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 14px; border-radius: 10px;
+      border: 2px solid #e0e0e0; background: #fff;
+      cursor: pointer; transition: border-color 0.15s, background 0.15s;
+      text-align: left; width: 100%;
+    }
+    .fm-candidate-btn:hover:not(:disabled) { border-color: #90caf9; background: #f5f9ff; }
+    .fm-cand-selected { border-color: #ef4444 !important; background: #fff5f5 !important; }
+    .fm-cand-disabled { opacity: .35; cursor: not-allowed; }
+    .fm-cand-name { flex: 1; font-size: 13px; font-weight: 600; color: #212121; text-align: left; }
+    .fm-cand-tag  { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: #e8eaf6; color: #3949ab; }
+    .bench-tag    { background: #fff3e0; color: #e65100; }
+    .fm-cand-drop-label { font-size: 10px; font-weight: 800; color: #ef4444; background: #ffebee; padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
+    .fm-bench-move-label { color: #1565c0; background: #e3f2fd; }
+
+    .fm-bench-move-section { margin-top: 12px; padding-top: 12px; border-top: 1px dashed #bbb; }
+    .fm-bench-move-title { margin-bottom: 8px; }
+    .fm-candidate-bench-move { border-color: #90caf9; }
+    .fm-candidate-bench-move.fm-cand-selected { background: #e3f2fd; border-color: #1565c0; }
+
+    .fm-empty-row {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 13px; color: #555; padding: 4px 0;
+    }
+    .fm-transfer-badge {
+      margin-left: auto; font-size: 11px; font-weight: 700;
+      background: #ef4444; color: #fff; padding: 2px 8px; border-radius: 10px;
+    }
+
+    .fm-actions {
+      display: flex; justify-content: flex-end; gap: 10px;
+      padding: 14px 20px;
+      border-top: 1px solid #e0e0e0;
+    }
+    .fm-btn { padding: 9px 22px; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; border: none; }
+    .fm-btn-cancel  { background: #f5f5f5; color: #555; }
+    .fm-btn-cancel:hover  { background: #eeeeee; }
+    .fm-btn-confirm { background: #1a237e; color: #fff; }
+    .fm-btn-confirm:hover:not(:disabled) { background: #283593; }
+    .fm-btn-confirm:disabled { opacity: .45; cursor: not-allowed; }
+    .fm-btn-restore { background: #c62828; color: #fff; }
+    .fm-btn-restore:hover { background: #b71c1c; }
+
+    .fm-info-note {
+      background: #e3f2fd; border: 1px solid #90caf9; border-radius: 10px;
+      padding: 10px 14px; font-size: 12px; color: #1565c0; line-height: 1.5;
+    }
+
+    .fm-dialog-sm { max-width: 400px; }
+    .fm-restore-body { align-items: center; text-align: center; padding: 20px 16px; gap: 12px; }
+    .fm-restore-icon { font-size: 32px; line-height: 1; color: #c62828; }
+    .fm-restore-msg { margin: 0; font-size: 14px; color: #212121; line-height: 1.5; }
+    .fm-restore-sub { margin: 0; font-size: 12px; color: #757575; line-height: 1.5; }
+
+    /* ── Formation Dialog — Mobile (bottom sheet) ─────────────────────────── */
+    @media (max-width: 600px) {
+      .fm-backdrop {
+        align-items: flex-end;
+        padding: 0;
+      }
+      .fm-dialog {
+        max-width: 100%;
+        max-height: 92vh;
+        border-radius: 20px 20px 0 0;
+        /* Subtle drag handle */
+      }
+      .fm-dialog::before {
+        content: '';
+        display: block;
+        width: 36px; height: 4px;
+        background: #ddd;
+        border-radius: 2px;
+        margin: 10px auto 0;
+        flex-shrink: 0;
+      }
+      .fm-header {
+        padding: 10px 16px 10px;
+      }
+      .fm-title { font-size: 15px; }
+      .fm-badge { font-size: 13px; padding: 3px 10px; }
+      .fm-close-btn { font-size: 16px; padding: 4px; }
+
+      .fm-body { padding: 12px 14px; gap: 12px; }
+
+      .fm-section-conflict,
+      .fm-section-warn { padding: 10px 12px; }
+
+      .fm-section-title { font-size: 12px; }
+      .fm-pos-pill { font-size: 10px; padding: 2px 7px; }
+
+      .fm-drop-info { font-size: 11px; gap: 4px; }
+      .fm-drop-counter { font-size: 10px; padding: 2px 6px; }
+
+      .fm-candidates { gap: 5px; }
+      .fm-candidate-btn { padding: 9px 10px; gap: 6px; }
+      .fm-cand-name { font-size: 12px; }
+      .fm-cand-tag { font-size: 9px; padding: 2px 5px; }
+      .fm-cand-drop-label { font-size: 9px; padding: 2px 6px; }
+
+      .fm-empty-row { font-size: 12px; }
+      .fm-transfer-badge { font-size: 10px; padding: 2px 6px; }
+
+      .fm-actions {
+        padding: 12px 14px;
+        flex-direction: column-reverse;
+        gap: 8px;
+      }
+      .fm-btn {
+        width: 100%;
+        padding: 13px;
+        font-size: 15px;
+        border-radius: 10px;
+        text-align: center;
+      }
+    }
   `]
 })
 export class MyTeamComponent implements OnInit {
@@ -829,7 +1208,8 @@ export class MyTeamComponent implements OnInit {
   poolSearch     = signal('');
   sortBy         = signal('price_desc');
   autoPicking    = signal(false);
-  formation      = signal('4-4-2');
+  formation         = signal('4-4-2');
+  selectedFormation = signal('4-4-2'); // tracks dropdown display; reverts on cancel
   pitchDisplay   = signal<'price' | 'pts'>('price');
   message        = signal('');
   msgOk          = signal(true);
@@ -904,6 +1284,17 @@ export class MyTeamComponent implements OnInit {
     // Check if XI/bench order changed vs original (same 15, different split)
     const origStarters = new Set(this.existingTeam()!.starters.map((p: Player) => p.id));
     return [...this.starterIds()].some(id => !origStarters.has(id));
+  });
+
+  hasTeamChanges = computed(() => {
+    const saved = this.existingTeam();
+    if (!saved) return true; // new team — always saveable
+    if (this.pendingTransfers() > 0) return true;
+    if (this.hasSubstitutionChanges()) return true;
+    if (this.formation() !== (saved.formation ?? '4-4-2')) return true;
+    if (this.captainId() !== (saved.captain?.id ?? null)) return true;
+    if (this.vcId() !== (saved.viceCaptain?.id ?? null)) return true;
+    return false;
   });
 
   stageLabel = computed(() => STAGE_LABEL[this.currentStage()] ?? this.currentStage());
@@ -991,7 +1382,7 @@ export class MyTeamComponent implements OnInit {
   canSave = computed(() =>
     this.starterIds().size === 11 && this.benchIdsArr().length === 4 &&
     !!this.captainId() && !!this.vcId() && this.remainingBudget() >= 0 &&
-    this.windowOpen()
+    this.windowOpen() && this.hasTeamChanges()
   );
 
   // ── Init ──────────────────────────────────────────────────────────────────
@@ -1044,6 +1435,7 @@ export class MyTeamComponent implements OnInit {
     // Restore formation first so pitchRows is correct before slots are set
     if (team.formation && FORMATIONS[team.formation]) {
       this.formation.set(team.formation);
+      this.selectedFormation.set(team.formation);
     }
     // starters and bench are returned in slot_order from the backend — map directly by index
     const xi: (number | null)[] = [...team.starters.map((p: Player) => p.id), ...Array(11).fill(null)].slice(0, 11);
@@ -1305,41 +1697,246 @@ export class MyTeamComponent implements OnInit {
     this.captainId.set(null); this.vcId.set(null); this.activeSlot.set(null); this.message.set('');
   }
 
+  // ── Formation-change dialog state ────────────────────────────────────────
+  // ── Formation-change dialog state ────────────────────────────────────────
+  restoreDlg = signal<{ savedFormation: string } | null>(null);
+
+  fmDlg = signal<{
+    from: string;
+    to: string;
+    conflicts: {
+      pos: string;
+      newQuota: number;
+      dropCount: number;
+      newXICount: number;             // XI slots for this pos in new formation
+      xiCount: number;                // current XI count for this pos
+      candidates: { id: number; name: string; isXI: boolean }[];
+      selectedDrops: Set<number>;
+      selectedBenchMoves: Set<number>; // XI players chosen to move to bench
+    }[];
+    emptySlots: { pos: string; count: number }[];
+    restoredFromSaved: boolean; // true when unsaved state was discarded before computing diff
+  } | null>(null);
+
   changeFormation(f: string) {
     if (!FORMATIONS[f]) return;
-    // Remap existing XI slots to new formation's slot positions
-    const [newDef, newMid, newFwd] = FORMATIONS[f];
-    const [oldDef, oldMid] = FORMATIONS[this.formation()] ?? FORMATIONS['4-4-2'];
-    const slots = [...this.starterSlots()];
+    if (f === this.formation()) return;
 
-    // Collect players by position from current slots
-    const byPos: Record<string, number[]> = { GK: [], DEF: [], MID: [], FWD: [] };
+    // If user selects the already-saved formation while there are unsaved changes,
+    // offer to restore the saved team rather than running the normal formation-change flow.
+    const saved = this.existingTeam();
+    const savedFormation = saved?.formation ?? null;
+    const hasUnsaved = this.formation() !== savedFormation ||
+      this.pendingTransfers() > 0 || this.hasSubstitutionChanges();
+
+    if (saved && f === savedFormation && hasUnsaved) {
+      this.restoreDlg.set({ savedFormation });
+      return;
+    }
+
+    this.selectedFormation.set(f); // show selection in dropdown immediately
+
+    // When unsaved changes exist, always base the conflict calculation on the saved
+    // team — not the current in-memory state — so stacked unconfirmed formation
+    // changes don't compound (e.g. saved 5-4-1 → unsaved 5-3-2 → pick 3-4-3
+    // should diff 5-4-1 vs 3-4-3, not 5-3-2 vs 3-4-3).
+    let restoredFromSaved = false;
+    if (saved && hasUnsaved) {
+      this.loadTeamIntoSlots(saved);
+      this.selectedFormation.set(f); // loadTeamIntoSlots resets selectedFormation, restore it
+      this.showRestoreMsg();
+      restoredFromSaved = true;
+    }
+
+    const [newDef, newMid, newFwd] = FORMATIONS[f];
+    const curFormation = this.formation();
+    const slots  = this.starterSlots();
+    const bench  = this.benchSlots();
+    const name   = (id: number) => this.allPlayers().find(p => p.id === id)?.name ?? `#${id}`;
+
+    // Collect ALL current players by position (XI + bench)
+    const xiByPos:    Record<string, number[]> = { GK: [], DEF: [], MID: [], FWD: [] };
+    const benchByPos: Record<string, number[]> = { GK: [], DEF: [], MID: [], FWD: [] };
+    slots.forEach((id, i) => { if (id !== null) xiByPos[slotPos(i, curFormation)]?.push(id); });
+    const benchPosMap: Record<number, string> = { 0: 'GK', 1: 'DEF', 2: 'MID', 3: 'FWD' };
+    bench.forEach((id, i) => { if (id !== null) benchByPos[benchPosMap[i]]?.push(id); });
+
+    // New quota per position (starters + 1 bench each, GK always 2)
+    const newQuota: Record<string, number> = { GK: 2, DEF: newDef + 1, MID: newMid + 1, FWD: newFwd + 1 };
+
+    // Build conflicts: positions where total held > new quota
+    type FmConflict = {
+      pos: string; newQuota: number; dropCount: number;
+      newXICount: number; xiCount: number;
+      candidates: { id: number; name: string; isXI: boolean }[];
+      selectedDrops: Set<number>; selectedBenchMoves: Set<number>;
+    };
+    const conflicts: FmConflict[] = [];
+    const newXINeed: Record<string, number> = { DEF: newDef, MID: newMid, FWD: newFwd };
+    for (const pos of ['DEF', 'MID', 'FWD']) {
+      const allHeld  = [...xiByPos[pos], ...benchByPos[pos]];
+      const dropCount = allHeld.length - newQuota[pos];
+      if (dropCount > 0) {
+        conflicts.push({
+          pos,
+          newQuota: newQuota[pos],
+          dropCount,
+          newXICount: newXINeed[pos],
+          xiCount: xiByPos[pos].length,
+          candidates: [
+            ...xiByPos[pos].map(id   => ({ id, name: name(id), isXI: true  })),
+            ...benchByPos[pos].map(id => ({ id, name: name(id), isXI: false })),
+          ],
+          selectedDrops: new Set(),
+          selectedBenchMoves: new Set(),
+        });
+      }
+    }
+
+    // Positions where formation needs more starters than the XI currently has
+    const emptySlots: { pos: string; count: number }[] = [];
+    const xiNeed: Record<string, number> = { DEF: newDef, MID: newMid, FWD: newFwd };
+    for (const pos of ['DEF', 'MID', 'FWD']) {
+      const gap = xiNeed[pos] - xiByPos[pos].length;
+      if (gap > 0) emptySlots.push({ pos, count: gap });
+    }
+
+    if (conflicts.length === 0 && emptySlots.length === 0) {
+      this.applyFormationChange(f, [], [], curFormation);
+      return;
+    }
+
+    this.fmDlg.set({ from: curFormation, to: f, conflicts, emptySlots, restoredFromSaved });
+  }
+
+  fmDlgToggleDrop(conflictIdx: number, playerId: number) {
+    const dlg = this.fmDlg();
+    if (!dlg) return;
+    const conflict = dlg.conflicts[conflictIdx];
+    const drops = new Set(conflict.selectedDrops);
+    if (drops.has(playerId)) {
+      drops.delete(playerId);
+    } else if (drops.size < conflict.dropCount) {
+      drops.add(playerId);
+    }
+    // When drops change, bench-move selections may be stale — reset them
+    const updated = {
+      ...dlg,
+      conflicts: dlg.conflicts.map((c, i) =>
+        i === conflictIdx ? { ...c, selectedDrops: drops, selectedBenchMoves: new Set<number>() } : c
+      ),
+    };
+    this.fmDlg.set(updated);
+  }
+
+  fmBenchMoveCountFor(conflict: { dropCount: number; newXICount: number; xiCount: number; selectedDrops: Set<number>; candidates: { id: number; isXI: boolean }[] }): number {
+    const droppedXICount = [...conflict.selectedDrops].filter(
+      id => conflict.candidates.find(c => c.id === id)?.isXI
+    ).length;
+    const remainingXI = conflict.xiCount - droppedXICount;
+    return Math.max(0, remainingXI - conflict.newXICount);
+  }
+
+  fmDlgToggleBenchMove(conflictIdx: number, playerId: number) {
+    const dlg = this.fmDlg();
+    if (!dlg) return;
+    const conflict = dlg.conflicts[conflictIdx];
+    const needed = this.fmBenchMoveCountFor(conflict);
+    const moves = new Set(conflict.selectedBenchMoves);
+    if (moves.has(playerId)) {
+      moves.delete(playerId);
+    } else if (moves.size < needed) {
+      moves.add(playerId);
+    }
+    this.fmDlg.set({
+      ...dlg,
+      conflicts: dlg.conflicts.map((c, i) => i === conflictIdx ? { ...c, selectedBenchMoves: moves } : c),
+    });
+  }
+
+  fmDlgCanConfirm(): boolean {
+    const dlg = this.fmDlg();
+    if (!dlg) return false;
+    return dlg.conflicts.every(c => {
+      if (c.selectedDrops.size !== c.dropCount) return false;
+      const needed = this.fmBenchMoveCountFor(c);
+      return c.selectedBenchMoves.size === needed;
+    });
+  }
+
+  fmDlgConfirm() {
+    const dlg = this.fmDlg();
+    if (!dlg || !this.fmDlgCanConfirm()) return;
+    const droppedIds = dlg.conflicts.flatMap(c => [...c.selectedDrops]);
+    const benchMoveIds = dlg.conflicts.flatMap(c => [...c.selectedBenchMoves]);
+    this.fmDlg.set(null);
+    this.applyFormationChange(dlg.to, droppedIds, benchMoveIds, dlg.from);
+  }
+
+  fmDlgCancel() {
+    this.selectedFormation.set(this.formation()); // revert dropdown to actual formation
+    this.fmDlg.set(null);
+  }
+
+  restoreDlgConfirm() {
+    const saved = this.existingTeam();
+    if (saved) this.loadTeamIntoSlots(saved);
+    this.restoreDlg.set(null);
+    this.showRestoreMsg();
+  }
+
+  private showRestoreMsg() {
+    this.msgOk.set(true);
+    this.message.set('Restored to your saved team — no transfers counted.');
+    setTimeout(() => this.message.set(''), 3500);
+  }
+
+  restoreDlgCancel() {
+    this.selectedFormation.set(this.formation()); // revert dropdown to actual formation
+    this.restoreDlg.set(null);
+  }
+
+  private applyFormationChange(f: string, droppedIds: number[], benchMoveIds: number[], _prevFormation: string) {
+    const [newDef, newMid, newFwd] = FORMATIONS[f];
+    const curFormation = this.formation();
+    const slots = this.starterSlots();
+    const bench = this.benchSlots();
+
+    // Collect XI players by position, excluding dropped and bench-moved
+    const xiByPos: Record<string, number[]> = { GK: [], DEF: [], MID: [], FWD: [] };
     slots.forEach((id, i) => {
-      if (id !== null) byPos[slotPos(i, this.formation())]?.push(id);
+      if (id !== null && !droppedIds.includes(id) && !benchMoveIds.includes(id))
+        xiByPos[slotPos(i, curFormation)]?.push(id);
     });
 
-    // Build new slots with new formation counts
+    // Rebuild XI slots for new formation
     const newSlots: (number | null)[] = Array(11).fill(null);
-    newSlots[0] = byPos['GK'][0] ?? null;
-    for (let i = 0; i < newDef; i++) newSlots[1 + i] = byPos['DEF'][i] ?? null;
-    for (let i = 0; i < newMid; i++) newSlots[1 + newDef + i] = byPos['MID'][i] ?? null;
-    for (let i = 0; i < newFwd; i++) newSlots[1 + newDef + newMid + i] = byPos['FWD'][i] ?? null;
+    newSlots[0] = xiByPos['GK'][0] ?? null;
+    for (let i = 0; i < newDef; i++) newSlots[1 + i]                    = xiByPos['DEF'][i] ?? null;
+    for (let i = 0; i < newMid; i++) newSlots[1 + newDef + i]           = xiByPos['MID'][i] ?? null;
+    for (let i = 0; i < newFwd; i++) newSlots[1 + newDef + newMid + i]  = xiByPos['FWD'][i] ?? null;
 
-    // Any overflow players (e.g. dropping from 4 DEF to 3 DEF) go to bench or are dropped
-    const bench = [...this.benchSlots()];
-    const overflowDef  = byPos['DEF'].slice(newDef);
-    const overflowMid  = byPos['MID'].slice(newMid);
-    const overflowFwd  = byPos['FWD'].slice(newFwd);
-    const overflow = [...overflowDef, ...overflowMid, ...overflowFwd];
-    overflow.forEach(id => {
-      // Try to place in bench slot for that position (slot 1=DEF, 2=MID, 3=FWD)
-      const pos = byPos['DEF'].includes(id) ? 1 : byPos['MID'].includes(id) ? 2 : 3;
-      if (bench[pos] === null) bench[pos] = id;
+    // Rebuild bench: remove dropped, keep existing, place bench-moved players into freed slots
+    const benchPosOrder = ['GK', 'DEF', 'MID', 'FWD'];
+    const newBench: (number | null)[] = bench.map(id =>
+      id !== null && droppedIds.includes(id) ? null : id
+    );
+    // Place each bench-moved player into the correct positional bench slot
+    benchMoveIds.forEach(id => {
+      const pos = slotPos(slots.indexOf(id), curFormation);
+      const benchIdx = benchPosOrder.indexOf(pos);
+      if (benchIdx >= 0) newBench[benchIdx] = id;
+    });
+
+    droppedIds.forEach(id => {
+      if (this.captainId() === id) this.captainId.set(null);
+      if (this.vcId()     === id) this.vcId.set(null);
     });
 
     this.formation.set(f);
+    this.selectedFormation.set(f);
     this.starterSlots.set(newSlots);
-    this.benchSlots.set(bench);
+    this.benchSlots.set(newBench);
     this.activeSlot.set(null);
   }
 
