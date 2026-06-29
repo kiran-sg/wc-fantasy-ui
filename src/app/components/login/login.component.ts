@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
@@ -37,13 +37,13 @@ import { AuthService } from '../../services/auth.service';
               placeholder="Enter your User ID or Hash ID" autocomplete="username">
           </mat-form-field>
 
-          @if (isSuperadmin()) {
+          @if (needsPassword()) {
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Password</mat-label>
               <mat-icon matPrefix>lock</mat-icon>
               <input matInput [type]="showPassword ? 'text' : 'password'"
                 [(ngModel)]="password" (keyup.enter)="submit()"
-                placeholder="Enter superadmin password" autocomplete="current-password">
+                placeholder="Enter admin password" autocomplete="current-password">
               <button mat-icon-button matSuffix type="button" (click)="showPassword = !showPassword">
                 <mat-icon>{{ showPassword ? 'visibility_off' : 'visibility' }}</mat-icon>
               </button>
@@ -59,7 +59,7 @@ import { AuthService } from '../../services/auth.service';
         </mat-card-content>
 
         <mat-card-actions>
-          <button mat-flat-button class="login-btn" (click)="submit()" [disabled]="!username.trim() || (isSuperadmin() && !password) || loading">
+          <button mat-flat-button class="login-btn" (click)="submit()" [disabled]="!username.trim() || (needsPassword() && !password) || loading">
             @if (loading) {
               <mat-spinner diameter="18" style="display:inline-block;margin-right:8px"></mat-spinner>
             }
@@ -186,6 +186,7 @@ export class LoginComponent {
   showPassword = false;
   loading = false;
   error = '';
+  needsPassword = signal(false);
 
   constructor() {
     if (this.auth.isLoggedIn()) {
@@ -193,21 +194,24 @@ export class LoginComponent {
     }
   }
 
-  isSuperadmin(): boolean { return this.username.trim() === 'superadmin'; }
-
   onUsernameChange() {
     this.error = '';
     this.password = '';
+    this.needsPassword.set(false);
   }
 
   submit() {
     if (!this.username.trim()) return;
-    if (this.isSuperadmin() && !this.password) return;
+    if (this.needsPassword() && !this.password) return;
     this.loading = true;
     this.error = '';
-    this.auth.login(this.username, this.isSuperadmin() ? this.password : undefined).subscribe({
-      next: () => {
+    this.auth.login(this.username, this.needsPassword() ? this.password : undefined).subscribe({
+      next: (r) => {
         this.loading = false;
+        if (r.requiresPassword) {
+          this.needsPassword.set(true);
+          return;
+        }
         this.router.navigate([this.auth.isAdmin() ? '/admin' : '/my-team']);
       },
       error: (err) => {

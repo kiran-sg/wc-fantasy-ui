@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { tap } from 'rxjs';
 import { environment } from '../../environments/environment';
 
-interface AuthResponse { token: string; userId: number; username: string; isAdmin: boolean; }
+export interface AuthResponse { token?: string; userId?: number; username?: string; isAdmin?: boolean; requiresPassword?: boolean; }
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -19,13 +19,14 @@ export class AuthService {
     if (password) body['password'] = password;
     return this.http.post<AuthResponse>(`${this.base}/login`, body)
       .pipe(tap(r => {
-        localStorage.setItem('token', r.token);
-        localStorage.setItem('userId', String(r.userId));
-        localStorage.setItem('username', r.username);
-        localStorage.setItem('isAdmin', String(r.isAdmin));
+        if (r.requiresPassword) return; // caller handles this case
+        localStorage.setItem('token', r.token!);
+        localStorage.setItem('userId', String(r.userId!));
+        localStorage.setItem('username', r.username!);
+        localStorage.setItem('isAdmin', String(r.isAdmin!));
         this.isLoggedIn.set(true);
-        this.username.set(r.username);
-        this.isAdmin.set(r.isAdmin);
+        this.username.set(r.username!);
+        this.isAdmin.set(r.isAdmin!);
       }));
   }
 

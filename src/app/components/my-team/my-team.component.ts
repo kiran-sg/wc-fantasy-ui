@@ -1700,8 +1700,10 @@ export class MyTeamComponent implements OnInit {
   }
 
   pointsForStage(stage: string): number {
-    return this.matchPoints().filter((p: any) => p.stage === stage)
+    const matchPts = this.matchPoints().filter((p: any) => p.stage === stage)
       .reduce((sum: number, p: any) => sum + (p.pointsEarned ?? 0), 0);
+    const penalty = this.histTransferMap()[stage]?.penaltyPoints ?? 0;
+    return matchPts - penalty;
   }
 
   playerPts(playerId: number): number {
