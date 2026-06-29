@@ -2,7 +2,7 @@ import { Component, inject, OnInit, signal, computed, HostListener } from '@angu
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
-import { Player, UserTeam, Match, UserTransferRecord, RoundConfig } from '../../models/models';
+import { Player, UserTeam, Match, UserTransferRecord, RoundConfig, UserTeamSnapshot } from '../../models/models';
 
 const BUDGET = 105_000_000;
 const TOTAL_PLAYERS = 15;
@@ -144,7 +144,95 @@ const BENCH_ROW: SlotRef[] = [
     </div>
   }
 
+  <!-- Tab nav -->
+  <div class="tab-nav">
+    <button class="tab-btn" [class.tab-active]="mobileView() !== 'history'" (click)="viewTeam()">My Team</button>
+    <button class="tab-btn" [class.tab-active]="mobileView() === 'history'" (click)="viewHistory()">My History</button>
+  </div>
+
+  <!-- ═══════════════════ HISTORY VIEW ═══════════════════ -->
+  @if (mobileView() === 'history') {
+    <div class="history-panel">
+      @if (snapshotsLoading()) {
+        <div class="hist-empty">Loading history…</div>
+      } @else if (snapshots().length === 0) {
+        <div class="hist-empty">
+          <div class="hist-empty-icon">📋</div>
+          <div class="hist-empty-title">No squad history yet</div>
+          <div class="hist-empty-sub">Save your team to start recording round history.</div>
+        </div>
+      } @else {
+        @for (snap of snapshots(); track snap.id) {
+          @let stagePts = pointsForStage(snap.stage);
+          <div class="hist-round-card">
+            <div class="hist-round-header">
+              <div class="hist-round-left">
+                <span class="hist-stage-badge">{{ stageNameFor(snap.stage) }}</span>
+                <span class="hist-formation">{{ snap.formation }}</span>
+              </div>
+              <div class="hist-pts-pill">
+                <span class="hist-pts-val">{{ stagePts }}</span>
+                <span class="hist-pts-lbl">pts</span>
+              </div>
+            </div>
+
+            @let tr = transfersForStage(snap.stage);
+            @if (tr) {
+              <div class="hist-transfer-row">
+                <span class="hist-tr-item">
+                  <span class="hist-tr-lbl">Transfers</span>
+                  <span class="hist-tr-val">{{ tr.transfersMade }}</span>
+                </span>
+                <span class="hist-tr-sep">·</span>
+                <span class="hist-tr-item">
+                  <span class="hist-tr-lbl">Penalty</span>
+                  <span class="hist-tr-val" [class.hist-tr-penalty]="(tr.penaltyPoints ?? 0) > 0">
+                    {{ (tr.penaltyPoints ?? 0) > 0 ? '−' + tr.penaltyPoints + ' pts' : 'None' }}
+                  </span>
+                </span>
+              </div>
+            }
+
+            <div class="hist-section-lbl">Starting XI</div>
+            <div class="hist-players">
+              @for (p of snap.starters; track p.id) {
+                @let pts = playerPts(p.id);
+                <div class="hist-player-row">
+                  <span class="hist-pos-dot" [style.background]="posColor(p.position)">{{ p.position }}</span>
+                  <span class="hist-player-name">
+                    {{ p.name }}
+                    @if (snap.captain?.id === p.id) { <span class="hist-cap">C</span> }
+                    @if (snap.viceCaptain?.id === p.id) { <span class="hist-vc">V</span> }
+                  </span>
+                  <span class="hist-team-name">{{ p.team.name }}</span>
+                  <span class="hist-player-pts" [class.hist-pts-pos]="pts > 0" [class.hist-pts-neg]="pts < 0">{{ pts }}</span>
+                </div>
+              }
+            </div>
+
+            <div class="hist-section-lbl">Bench</div>
+            <div class="hist-players hist-bench-players">
+              @for (p of snap.bench; track p.id) {
+                @let pts = playerPts(p.id);
+                <div class="hist-player-row hist-bench-row">
+                  <span class="hist-pos-dot" [style.background]="posColor(p.position)">{{ p.position }}</span>
+                  <span class="hist-player-name">{{ p.name }}</span>
+                  <span class="hist-team-name">{{ p.team.name }}</span>
+                  <span class="hist-player-pts hist-bench-pts">{{ pts }}</span>
+                </div>
+              }
+            </div>
+          </div>
+        }
+        <div class="hist-group-note">
+          Showing history from Round of 32 onwards.
+        </div>
+      }
+    </div>
+  }
+
   <!-- ═══════════════════ BODY ═══════════════════ -->
+  @if (mobileView() !== 'history') {
   <div class="body-row" [class.mobile-show-pool]="mobileView() === 'pool'">
 
     <!-- ── LEFT: PITCH ── -->
@@ -475,6 +563,7 @@ const BENCH_ROW: SlotRef[] = [
     </div>
 
   </div>
+  } <!-- end @if mobileView !== history -->
 </div>
 
 <!-- ── Restore Saved Team Dialog ────────────────────────────────────── -->
@@ -654,6 +743,129 @@ const BENCH_ROW: SlotRef[] = [
       padding: 4px 12px; font-size: 12px; font-weight: 700; cursor: pointer;
     }
     .retry-btn:hover { background: #fef2f2; }
+
+    /* ── TAB NAV ── */
+    .tab-nav {
+      display: flex; background: #0d0d0d; border-bottom: 1px solid #1f2937;
+      flex-shrink: 0;
+    }
+    .tab-btn {
+      flex: 1; padding: 8px 16px; background: none; border: none; border-bottom: 3px solid transparent;
+      color: #6b7280; font-size: 13px; font-weight: 700; cursor: pointer; text-transform: uppercase;
+      letter-spacing: 0.5px; transition: color 0.15s;
+    }
+    .tab-btn:hover { color: #d1d5db; }
+    .tab-btn.tab-active { color: #60a5fa; border-bottom-color: #3b82f6; }
+
+    /* ── HISTORY PANEL ── */
+    .history-panel {
+      flex: 1; overflow-y: auto; background: #111827;
+      padding: 12px 14px 24px; display: flex; flex-direction: column; gap: 14px;
+    }
+    .hist-empty {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 10px; padding: 48px 24px; color: #6b7280; text-align: center;
+    }
+    .hist-empty-icon { font-size: 40px; line-height: 1; }
+    .hist-empty-title { color: #9ca3af; font-size: 16px; font-weight: 700; }
+    .hist-empty-sub { color: #4b5563; font-size: 13px; }
+
+    .hist-round-card {
+      background: #1f2937; border: 1px solid #374151; border-radius: 12px; overflow: hidden;
+    }
+    .hist-round-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px; background: #111827; border-bottom: 1px solid #374151;
+    }
+    .hist-round-left { display: flex; align-items: center; gap: 8px; }
+    .hist-stage-badge {
+      background: #1d4ed8; color: #fff; font-size: 11px; font-weight: 900;
+      padding: 3px 10px; border-radius: 6px;
+    }
+    .hist-formation { color: #6b7280; font-size: 11px; font-weight: 600; }
+    .hist-pts-pill {
+      display: flex; align-items: baseline; gap: 3px;
+      background: #064e3b; border: 1px solid #065f46; border-radius: 20px; padding: 4px 12px;
+    }
+    .hist-pts-val { color: #4ade80; font-size: 18px; font-weight: 900; line-height: 1; }
+    .hist-pts-lbl { color: #6ee7b7; font-size: 10px; font-weight: 700; }
+
+    .hist-transfer-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 14px; background: #111827; border-bottom: 1px solid #374151;
+    }
+    .hist-tr-item { display: flex; align-items: center; gap: 5px; }
+    .hist-tr-lbl { color: #6b7280; font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; }
+    .hist-tr-val { color: #e5e7eb; font-size: 12px; font-weight: 700; }
+    .hist-tr-penalty { color: #f87171 !important; }
+    .hist-tr-sep { color: #374151; font-size: 12px; }
+
+    .hist-section-lbl {
+      color: #4b5563; font-size: 10px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.5px; padding: 6px 14px 2px;
+    }
+    .hist-players { display: flex; flex-direction: column; }
+    .hist-bench-players { border-top: 1px dashed #374151; }
+    .hist-player-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 14px; border-bottom: 1px solid #1f2937;
+    }
+    .hist-player-row:last-child { border-bottom: none; }
+    .hist-bench-row { opacity: 0.75; }
+    .hist-pos-dot {
+      font-size: 9px; font-weight: 800; color: #fff; padding: 2px 5px;
+      border-radius: 4px; flex-shrink: 0; min-width: 30px; text-align: center;
+    }
+    .hist-player-name {
+      flex: 1; color: #e5e7eb; font-size: 13px; font-weight: 600;
+      display: flex; align-items: center; gap: 4px; overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap;
+    }
+    .hist-cap {
+      background: #fbbf24; color: #000; font-size: 9px; font-weight: 900;
+      padding: 1px 5px; border-radius: 4px; flex-shrink: 0;
+    }
+    .hist-vc {
+      background: #818cf8; color: #000; font-size: 9px; font-weight: 900;
+      padding: 1px 5px; border-radius: 4px; flex-shrink: 0;
+    }
+    .hist-team-name { color: #6b7280; font-size: 11px; flex-shrink: 0; }
+    .hist-player-pts {
+      font-size: 13px; font-weight: 800; color: #9ca3af; min-width: 28px; text-align: right;
+    }
+    .hist-pts-pos { color: #4ade80; }
+    .hist-pts-neg { color: #f87171; }
+    .hist-bench-pts { color: #4b5563; }
+
+    .hist-group-note {
+      color: #4b5563; font-size: 11px; text-align: center; padding: 8px 0;
+      border-top: 1px dashed #374151; margin-top: 4px;
+    }
+
+    @media (max-width: 768px) {
+      .tab-nav { border-bottom: 1px solid #374151; }
+      .tab-btn { font-size: 12px; padding: 7px 10px; }
+
+      .history-panel { padding: 10px 8px 24px; gap: 12px; }
+
+      .hist-round-card { border-radius: 10px; }
+      .hist-round-header { padding: 8px 12px; }
+      .hist-stage-badge { font-size: 10px; padding: 2px 8px; }
+      .hist-pts-val { font-size: 16px; }
+
+      .hist-section-lbl { padding: 5px 10px 2px; font-size: 9px; }
+
+      .hist-player-row { padding: 5px 10px; gap: 6px; }
+      .hist-pos-dot { font-size: 8px; padding: 2px 4px; min-width: 26px; }
+      .hist-player-name { font-size: 12px; }
+      .hist-team-name { display: none; }
+      .hist-player-pts { font-size: 12px; min-width: 24px; }
+
+      .hist-empty { padding: 32px 16px; }
+      .hist-empty-icon { font-size: 32px; }
+      .hist-empty-title { font-size: 14px; }
+      .hist-empty-sub { font-size: 12px; }
+    }
 
     .page-wrap {
       position: fixed; top: 56px; left: 0; right: 0; bottom: 0;
@@ -1234,9 +1446,15 @@ export class MyTeamComponent implements OnInit {
   pitchDisplay   = signal<'price' | 'pts'>('price');
   message        = signal('');
   msgOk          = signal(true);
-  mobileView     = signal<'pitch' | 'pool'>('pitch');
+  mobileView     = signal<'pitch' | 'pool' | 'history'>('pitch');
 
   pitchRows = computed(() => buildRows(this.formation()));
+
+  snapshots          = signal<UserTeamSnapshot[]>([]);
+  snapshotsLoading   = signal(false);
+  matchPoints        = signal<{ stage: string; match: any; pointsEarned: number }[]>([]);
+  ppPoints           = signal<Record<number, number>>({});
+  histTransferMap    = signal<Record<string, UserTransferRecord>>({});
 
   private originalSquadIds = new Set<number>();
 
@@ -1449,6 +1667,47 @@ export class MyTeamComponent implements OnInit {
     }
   }
 
+  loadHistory(userId: number) {
+    this.snapshotsLoading.set(true);
+    this.api.getTeamSnapshots(userId).subscribe({
+      next: snaps => { this.snapshots.set(snaps); this.snapshotsLoading.set(false); },
+      error: () => this.snapshotsLoading.set(false)
+    });
+    this.api.getMyTeamPoints(userId).subscribe({
+      next: pts => this.matchPoints.set(pts as any),
+      error: () => {}
+    });
+    this.api.getPlayerPoints().subscribe({
+      next: pts => this.ppPoints.set(pts),
+      error: () => {}
+    });
+    this.api.getAllTransferRecords(userId).subscribe({
+      next: recs => {
+        const map: Record<string, UserTransferRecord> = {};
+        recs.forEach(r => map[r.stage] = r);
+        this.histTransferMap.set(map);
+      },
+      error: () => {}
+    });
+  }
+
+  pointsForStage(stage: string): number {
+    return this.matchPoints().filter((p: any) => p.stage === stage)
+      .reduce((sum: number, p: any) => sum + (p.pointsEarned ?? 0), 0);
+  }
+
+  playerPts(playerId: number): number {
+    return this.ppPoints()[playerId] ?? 0;
+  }
+
+  stageNameFor(stage: string): string {
+    return (STAGE_LABEL as Record<string, string>)[stage] ?? stage;
+  }
+
+  transfersForStage(stage: string): UserTransferRecord | null {
+    return this.histTransferMap()[stage] ?? null;
+  }
+
   retryLoadTeam() {
     const userId = this.auth.getUserId();
     if (userId) this.loadMyTeam(+userId);
@@ -1529,6 +1788,14 @@ export class MyTeamComponent implements OnInit {
   viewTeam() {
     this.mobileView.set('pitch');
     this.activeSlot.set(null);
+  }
+
+  viewHistory() {
+    this.mobileView.set('history');
+    const userId = this.auth.getUserId();
+    if (userId && this.snapshots().length === 0 && !this.snapshotsLoading()) {
+      this.loadHistory(+userId);
+    }
   }
 
   private doSwap(a: SlotRef, b: SlotRef) {

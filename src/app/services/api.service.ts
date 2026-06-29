@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
-import { Team, Player, Match, UserSquad, AppUser, UserTeam, UserTeamMatchPoints, UserTransferRecord, RoundConfig } from '../models/models';
+import { Team, Player, Match, UserSquad, AppUser, UserTeam, UserTeamMatchPoints, UserTransferRecord, UserTeamSnapshot, RoundConfig } from '../models/models';
 import { environment } from '../../environments/environment';
 
 @Injectable({ providedIn: 'root' })
@@ -92,6 +92,10 @@ export class ApiService {
 
   getAllTransferRecords(userId: number): Observable<UserTransferRecord[]> {
     return this.http.get<UserTransferRecord[]>(`${this.base}/team/transfers/all?userId=${userId}`);
+  }
+
+  getTeamSnapshots(userId: number): Observable<UserTeamSnapshot[]> {
+    return this.http.get<UserTeamSnapshot[]>(`${this.base}/team/snapshots?userId=${userId}`);
   }
 
   getRoundConfigs(): Observable<RoundConfig[]> {

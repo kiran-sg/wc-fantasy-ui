@@ -91,5 +91,15 @@ export interface UserTransferRecord {
   id?: number;
   stage: string;
   transfersMade: number;
-  penaltyPoints: number;
+  penaltyPoints?: number;
+}
+
+export interface UserTeamSnapshot {
+  id: number;
+  stage: string;
+  formation: string;
+  starters: Player[];
+  bench: Player[];
+  captain?: Player;
+  viceCaptain?: Player;
 }
