@@ -152,6 +152,7 @@ const BENCH_ROW: SlotRef[] = [
 
   <!-- ═══════════════════ HISTORY VIEW ═══════════════════ -->
   @if (mobileView() === 'history') {
+    <div class="history-scroll-host">
     <div class="history-panel">
       @if (snapshotsLoading()) {
         <div class="hist-empty">Loading history…</div>
@@ -228,6 +229,7 @@ const BENCH_ROW: SlotRef[] = [
           Showing history from Round of 32 onwards.
         </div>
       }
+    </div>
     </div>
   }
 
@@ -756,8 +758,12 @@ const BENCH_ROW: SlotRef[] = [
     .tab-btn.tab-active { color: #60a5fa; border-bottom-color: #3b82f6; }
 
     /* ── HISTORY PANEL ── */
+    .history-scroll-host {
+      flex: 1; min-height: 0; position: relative;
+    }
     .history-panel {
-      flex: 1; height: 0; overflow-y: scroll; background: #111827;
+      position: absolute; inset: 0;
+      overflow-y: scroll; background: #111827;
       padding: 12px 14px 24px; display: flex; flex-direction: column; gap: 14px;
       -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
     }
@@ -845,7 +851,8 @@ const BENCH_ROW: SlotRef[] = [
       .tab-nav { border-bottom: 1px solid #374151; }
       .tab-btn { font-size: 12px; padding: 7px 10px; }
 
-      .history-panel { padding: 10px 8px 24px; gap: 12px; }
+      .history-scroll-host { flex: 1; min-height: 0; }
+      .history-panel { padding: 10px 8px 80px; gap: 12px; }
 
       .hist-round-card { border-radius: 10px; }
       .hist-round-header { padding: 8px 12px; }
