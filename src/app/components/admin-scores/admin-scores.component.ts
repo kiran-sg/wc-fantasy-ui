@@ -625,9 +625,11 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
                               </div>
                             } @else {
                               <div class="pts-player-table">
+                                @let capPlayed = captainPlayed(breakdown, team.captain.id);
                                 @for (s of breakdown; track s.player.id) {
                                   @let isCap = s.player.id === team.captain.id;
                                   @let isVC = s.player.id === team.viceCaptain.id;
+                                  @let gets2x = isCap || (isVC && !capPlayed);
                                   @let ppts = calcPoints(s);
                                   <div class="pts-player-row" [class.pts-row-cap]="isCap" [class.pts-row-vc]="isVC">
                                     <div class="pts-p-info">
@@ -662,9 +664,9 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
                                         <span class="pts-stat" title="Shots on target">🎯 {{ s.shotsOnTarget }}</span>
                                       }
                                     </div>
-                                    <div class="pts-p-total" [class.cap-pts]="isCap || isVC">
-                                      {{ isCap || isVC ? ppts * 2 : ppts }}
-                                      @if (isCap || isVC) { <span class="x2-tag">×2</span> }
+                                    <div class="pts-p-total" [class.cap-pts]="gets2x">
+                                      {{ gets2x ? ppts * 2 : ppts }}
+                                      @if (gets2x) { <span class="x2-tag">×2</span> }
                                     </div>
                                   </div>
                                 }
@@ -2402,6 +2404,11 @@ export class AdminScoresComponent implements OnInit {
         error: () => { this.matchStatsCache[matchId] = []; }
       });
     }
+  }
+
+  captainPlayed(breakdown: any[], captainId: number): boolean {
+    const cap = breakdown.find((s: any) => s.player?.id === captainId);
+    return cap ? (cap.minutesPlayed ?? 0) > 0 : false;
   }
 
   breakdownForMatch(matchId: number, team: any): any[] {
