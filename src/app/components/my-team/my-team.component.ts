@@ -757,7 +757,7 @@ const BENCH_ROW: SlotRef[] = [
 
     /* ── HISTORY PANEL ── */
     .history-panel {
-      flex: 1; overflow-y: auto; background: #111827;
+      flex: 1; min-height: 0; overflow-y: auto; background: #111827;
       padding: 12px 14px 24px; display: flex; flex-direction: column; gap: 14px;
     }
     .hist-empty {
