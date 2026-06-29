@@ -14,8 +14,10 @@ export class AuthService {
   username = signal(localStorage.getItem('username') || '');
   isAdmin = signal(localStorage.getItem('isAdmin') === 'true');
 
-  login(username: string) {
-    return this.http.post<AuthResponse>(`${this.base}/login`, { username })
+  login(username: string, password?: string) {
+    const body: any = { username };
+    if (password) body['password'] = password;
+    return this.http.post<AuthResponse>(`${this.base}/login`, body)
       .pipe(tap(r => {
         localStorage.setItem('token', r.token);
         localStorage.setItem('userId', String(r.userId));

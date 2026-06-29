@@ -32,9 +32,23 @@ import { AuthService } from '../../services/auth.service';
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>User ID / Hash ID</mat-label>
             <mat-icon matPrefix>person</mat-icon>
-            <input matInput [(ngModel)]="username" (keyup.enter)="submit()"
+            <input matInput [(ngModel)]="username" (ngModelChange)="onUsernameChange()"
+              (keyup.enter)="submit()"
               placeholder="Enter your User ID or Hash ID" autocomplete="username">
           </mat-form-field>
+
+          @if (isSuperadmin()) {
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Password</mat-label>
+              <mat-icon matPrefix>lock</mat-icon>
+              <input matInput [type]="showPassword ? 'text' : 'password'"
+                [(ngModel)]="password" (keyup.enter)="submit()"
+                placeholder="Enter superadmin password" autocomplete="current-password">
+              <button mat-icon-button matSuffix type="button" (click)="showPassword = !showPassword">
+                <mat-icon>{{ showPassword ? 'visibility_off' : 'visibility' }}</mat-icon>
+              </button>
+            </mat-form-field>
+          }
 
           @if (error) {
             <div class="login-error">
@@ -45,7 +59,7 @@ import { AuthService } from '../../services/auth.service';
         </mat-card-content>
 
         <mat-card-actions>
-          <button mat-flat-button class="login-btn" (click)="submit()" [disabled]="!username.trim() || loading">
+          <button mat-flat-button class="login-btn" (click)="submit()" [disabled]="!username.trim() || (isSuperadmin() && !password) || loading">
             @if (loading) {
               <mat-spinner diameter="18" style="display:inline-block;margin-right:8px"></mat-spinner>
             }
@@ -168,6 +182,8 @@ export class LoginComponent {
   private auth = inject(AuthService);
   private router = inject(Router);
   username = '';
+  password = '';
+  showPassword = false;
   loading = false;
   error = '';
 
@@ -177,11 +193,19 @@ export class LoginComponent {
     }
   }
 
+  isSuperadmin(): boolean { return this.username.trim() === 'superadmin'; }
+
+  onUsernameChange() {
+    this.error = '';
+    this.password = '';
+  }
+
   submit() {
     if (!this.username.trim()) return;
+    if (this.isSuperadmin() && !this.password) return;
     this.loading = true;
     this.error = '';
-    this.auth.login(this.username).subscribe({
+    this.auth.login(this.username, this.isSuperadmin() ? this.password : undefined).subscribe({
       next: () => {
         this.loading = false;
         this.router.navigate([this.auth.isAdmin() ? '/admin' : '/my-team']);
