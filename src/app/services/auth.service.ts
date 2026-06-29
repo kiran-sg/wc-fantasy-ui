@@ -39,4 +39,12 @@ export class AuthService {
 
   getToken(): string | null { return localStorage.getItem('token'); }
   getUserId(): number { return +(localStorage.getItem('userId') || '0'); }
+
+  verifySession() {
+    return this.http.get<{ userId: number; username: string; isAdmin: boolean }>(`${this.base}/me`)
+      .pipe(tap(r => {
+        localStorage.setItem('isAdmin', String(r.isAdmin));
+        this.isAdmin.set(r.isAdmin);
+      }));
+  }
 }
