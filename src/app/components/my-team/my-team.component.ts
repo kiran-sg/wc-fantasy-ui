@@ -759,6 +759,7 @@ const BENCH_ROW: SlotRef[] = [
     .history-panel {
       flex: 1; min-height: 0; overflow-y: auto; background: #111827;
       padding: 12px 14px 24px; display: flex; flex-direction: column; gap: 14px;
+      -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
     }
     .hist-empty {
       display: flex; flex-direction: column; align-items: center; justify-content: center;
