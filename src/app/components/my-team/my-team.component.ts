@@ -759,14 +759,15 @@ const BENCH_ROW: SlotRef[] = [
 
     /* ── HISTORY PANEL ── */
     .history-scroll-host {
-      flex: 1; min-height: 0; position: relative;
+      flex: 1; min-height: 0; position: relative; overflow: hidden;
     }
     .history-panel {
       position: absolute; inset: 0;
       overflow-y: scroll; background: #111827;
-      padding: 12px 14px 24px; display: flex; flex-direction: column; gap: 14px;
+      padding: 12px 14px 24px;
       -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
     }
+    .history-panel > * + * { margin-top: 14px; }
     .hist-empty {
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       gap: 10px; padding: 48px 24px; color: #6b7280; text-align: center;
@@ -852,7 +853,8 @@ const BENCH_ROW: SlotRef[] = [
       .tab-btn { font-size: 12px; padding: 7px 10px; }
 
       .history-scroll-host { flex: 1; min-height: 0; }
-      .history-panel { padding: 10px 8px 80px; gap: 12px; }
+      .history-panel { padding: 10px 8px 80px; }
+      .history-panel > * + * { margin-top: 12px; }
 
       .hist-round-card { border-radius: 10px; }
       .hist-round-header { padding: 8px 12px; }
