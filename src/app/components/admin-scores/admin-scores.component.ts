@@ -199,7 +199,12 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
                       }
                     </div>
                   </div>
-                  <div class="preview-count">{{ filteredPreviewStats().length }} / {{ previewStats().length }} players</div>
+                  <div class="preview-count-row">
+                    <div class="preview-count">{{ filteredPreviewStats().length }} / {{ previewStats().length }} players</div>
+                    <button class="st-btn st-sort-btn" [class.active]="previewSortByPts()" (click)="previewSortByPts.set(!previewSortByPts())">
+                      ↓ Pts
+                    </button>
+                  </div>
                 </div>
                 </div> <!-- /preview-sticky-header -->
 
@@ -1029,7 +1034,9 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
     .score-edit-input { width:52px; height:36px; text-align:center; font-size:20px; font-weight:800; color:#1a237e; border:2px solid #3949ab; border-radius:8px; outline:none; }
     .score-edit-sep { font-size:20px; font-weight:800; color:#666; }
     .preview-filters { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .preview-count-row { display:flex; align-items:center; justify-content:space-between; }
     .preview-count { font-size:12px; color:#888; font-weight:600; }
+    .st-sort-btn.active { background:#2e7d32; color:#fff; border-color:#2e7d32; }
 
     /* Player edit cards */
     .preview-cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:12px; }
@@ -1615,7 +1622,8 @@ export class AdminScoresComponent implements OnInit {
   scoreSearchQuery = signal('');
   statsPlayerSearch = signal('');
   statsTeamFilter = signal<string | null>(null);
-  statsPosFilter  = signal<string | null>(null);
+  statsPosFilter    = signal<string | null>(null);
+  previewSortByPts  = signal(false);
 
   // Preview / edit flow
   previewing  = signal<number | null>(null);
@@ -1635,6 +1643,7 @@ export class AdminScoresComponent implements OnInit {
     if (search) list = list.filter((s: any) => s.playerName.toLowerCase().includes(search) || s.teamName.toLowerCase().includes(search));
     if (team)   list = list.filter((s: any) => s.teamName === team);
     if (pos)    list = list.filter((s: any) => s.position === pos);
+    if (this.previewSortByPts()) list = [...list].sort((a: any, b: any) => this.calcPreviewPoints(b) - this.calcPreviewPoints(a));
     return list;
   });
 
