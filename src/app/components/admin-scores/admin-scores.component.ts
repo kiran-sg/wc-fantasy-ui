@@ -561,7 +561,7 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
                               <div class="p-avatar filled-av" [style.--pc]="sqPosColor(p.position)"></div>
                               <div class="p-name-bar">{{ sqShortName(p.name) }}</div>
                               <div class="p-price-bar" [style.background]="sqPosColor(p.position)">
-                                {{ sqPitchDisplay === 'pts' ? (p.totalPoints ?? 0) + ' pts' : fmtM(p.price) }}
+                                {{ sqPitchDisplay === 'pts' ? (ppPlayerPoints()[p.id] ?? 0) + ' pts' : fmtM(p.price) }}
                               </div>
                             </div>
                           </div>
@@ -587,7 +587,7 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
                             <div class="p-avatar filled-av" [style.--pc]="sqPosColor(p.position)"></div>
                             <div class="p-name-bar">{{ sqShortName(p.name) }}</div>
                             <div class="p-price-bar" [style.background]="sqPosColor(p.position)">
-                              {{ sqPitchDisplay === 'pts' ? (p.totalPoints ?? 0) + ' pts' : fmtM(p.price) }}
+                              {{ sqPitchDisplay === 'pts' ? (ppPlayerPoints()[p.id] ?? 0) + ' pts' : fmtM(p.price) }}
                             </div>
                           </div>
                         </div>
@@ -2051,6 +2051,7 @@ export class AdminScoresComponent implements OnInit {
     this.activeTab.set(key);
     if (key === 'users') {
       if (this.allUsers().length === 0) this.loadUsers();
+      if (Object.keys(this.ppPlayerPoints()).length === 0) this.loadPlayerPoints();
     }
     if (key === 'players') {
       if (this.allPpPlayers().length === 0) this.loadPpPlayers();
