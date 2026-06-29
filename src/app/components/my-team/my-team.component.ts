@@ -421,36 +421,6 @@ const BENCH_ROW: SlotRef[] = [
         </div>
       </div>
 
-      <!-- Action menu (captain / vc assignment) -->
-      @if (showActionMenu() && activePlayer(); as p) {
-        <div class="action-menu" (click)="$event.stopPropagation()">
-          <div class="am-row">
-            <div class="am-dot" [style.background]="posColor(p.position)">{{ p.position }}</div>
-            <div class="am-info">
-              <div class="am-name">{{ p.name }}</div>
-              <div class="am-meta">{{ p.team.name }} · {{ fmtM(p.price) }}</div>
-            </div>
-            <button class="am-close" (click)="activeSlot.set(null)">✕</button>
-          </div>
-          <div class="am-swap-hint">
-            @if (activeSlot()?.type === 'xi') {
-              <span class="am-hint-text">⇅ Tap a bench player below to substitute</span>
-            } @else {
-              <span class="am-hint-text">⇅ Tap a pitch player to substitute</span>
-            }
-          </div>
-          <div class="am-actions">
-            <button class="am-btn am-remove" [disabled]="!windowOpen()" (click)="removeActive()">Remove</button>
-            <button class="am-btn am-cap" [class.am-sel]="captainId() === p.id" (click)="setCaptain(p.id)">
-              {{ captainId() === p.id ? '✓ Captain' : 'Captain' }}
-            </button>
-            <button class="am-btn am-vc" [class.am-sel]="vcId() === p.id" (click)="setVC(p.id)">
-              {{ vcId() === p.id ? '✓ Vice-C' : 'Vice-C' }}
-            </button>
-          </div>
-        </div>
-      }
-
       <!-- Toolbar -->
       <div class="pitch-toolbar" (click)="$event.stopPropagation()">
         <div class="cap-tags">
@@ -466,15 +436,11 @@ const BENCH_ROW: SlotRef[] = [
         <button class="clear-btn" [disabled]="!windowOpen()" (click)="clearAll()">✕ Clear</button>
       </div>
 
-      <!-- Save button -->
+      <!-- Save button + window-closed inline -->
       <div class="save-row" (click)="$event.stopPropagation()">
-        @if (!windowOpen()) {
-          <div class="window-closed-bar">
-            🔒 Transfer window closed · Opens {{ fmtHour(currentConfig()?.windowOpenHour ?? 12) }}
-          </div>
-        }
         <button class="save-btn" [disabled]="!canSave()" (click)="confirmSave()">
-          {{ saveButtonLabel() }}
+          @if (!windowOpen()) { 🔒 Window closed · Opens {{ fmtHour(currentConfig()?.windowOpenHour ?? 12) }} }
+          @else { {{ saveButtonLabel() }} }
         </button>
       </div>
 
@@ -492,6 +458,38 @@ const BENCH_ROW: SlotRef[] = [
           <span class="key-item"><span class="ki-dim">░</span> Sub</span>
         </div>
       </div>
+
+      <!-- Action menu overlay — floats over pitch, never affects layout -->
+      @if (showActionMenu() && activePlayer(); as p) {
+        <div class="action-menu-overlay" (click)="$event.stopPropagation()">
+          <div class="action-menu">
+            <div class="am-row">
+              <div class="am-dot" [style.background]="posColor(p.position)">{{ p.position }}</div>
+              <div class="am-info">
+                <div class="am-name">{{ p.name }}</div>
+                <div class="am-meta">{{ p.team.name }} · {{ fmtM(p.price) }}</div>
+              </div>
+              <button class="am-close" (click)="activeSlot.set(null)">✕</button>
+            </div>
+            <div class="am-swap-hint">
+              @if (activeSlot()?.type === 'xi') {
+                <span class="am-hint-text">⇅ Tap a bench player below to substitute</span>
+              } @else {
+                <span class="am-hint-text">⇅ Tap a pitch player to substitute</span>
+              }
+            </div>
+            <div class="am-actions">
+              <button class="am-btn am-remove" [disabled]="!windowOpen()" (click)="removeActive()">Remove</button>
+              <button class="am-btn am-cap" [class.am-sel]="captainId() === p.id" (click)="setCaptain(p.id)">
+                {{ captainId() === p.id ? '✓ Captain' : 'Captain' }}
+              </button>
+              <button class="am-btn am-vc" [class.am-sel]="vcId() === p.id" (click)="setVC(p.id)">
+                {{ vcId() === p.id ? '✓ Vice-C' : 'Vice-C' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      }
     </div>
 
     <!-- ── RIGHT: PLAYER POOL ── -->
@@ -905,7 +903,7 @@ const BENCH_ROW: SlotRef[] = [
     .body-row { display: flex; flex: 1; min-height: 0; overflow: hidden; }
 
     /* ── PITCH COLUMN ── */
-    .pitch-col { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: 6px 10px 0; overflow: hidden; }
+    .pitch-col { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: 6px 10px 0; overflow: hidden; position: relative; }
 
     /* Transfer panel */
     .transfer-panel { display: flex; align-items: center; background: #0d0d0d; border: 1px solid #1f2937; border-radius: 8px; padding: 6px 10px; margin-bottom: 5px; flex-shrink: 0; gap: 2px; flex-wrap: wrap; }
@@ -1067,16 +1065,25 @@ const BENCH_ROW: SlotRef[] = [
       margin-top: 2px; letter-spacing: .3px;
     }
 
-    /* Action menu */
-    .action-menu { background: #111827; border-top: 2px solid #1d4ed8; padding: 7px 10px; border-radius: 0 0 10px 10px; flex-shrink: 0; }
+    /* Action menu — absolute overlay, never affects pitch height */
+    .action-menu-overlay {
+      position: absolute; left: 0; right: 0; bottom: 0; z-index: 20;
+      padding: 0 10px 6px;
+      pointer-events: none;
+    }
+    .action-menu {
+      background: #0d1117; border: 1px solid #1d4ed8; border-radius: 10px;
+      padding: 8px 10px; pointer-events: all;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.7);
+    }
     .am-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
     .am-dot { width: 34px; height: 34px; border-radius: 7px; flex-shrink: 0; color: #fff; font-size: 9px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
-    .am-info { flex: 1; }
-    .am-name { color: #fff; font-size: 12px; font-weight: 700; }
+    .am-info { flex: 1; min-width: 0; }
+    .am-name { color: #fff; font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .am-meta { color: #6b7280; font-size: 10px; }
-    .am-close { background: none; border: 1px solid #374151; color: #9ca3af; width: 24px; height: 24px; border-radius: 50%; cursor: pointer; font-size: 11px; }
-    .am-swap-hint { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); border-radius: 6px; padding: 5px 10px; margin-bottom: 6px; text-align: center; }
-    .am-hint-text { color: #fbbf24; font-size: 11px; font-weight: 600; }
+    .am-close { background: none; border: 1px solid #374151; color: #9ca3af; width: 24px; height: 24px; border-radius: 50%; cursor: pointer; font-size: 11px; flex-shrink: 0; }
+    .am-swap-hint { background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.2); border-radius: 6px; padding: 4px 8px; margin-bottom: 6px; text-align: center; }
+    .am-hint-text { color: #fbbf24; font-size: 10px; font-weight: 600; }
     .am-actions { display: flex; gap: 6px; }
     .am-btn { flex: 1; padding: 6px 4px; border-radius: 6px; border: none; font-size: 11px; font-weight: 800; cursor: pointer; }
     .am-remove { background: #1f2937; color: #f87171; }
@@ -1103,10 +1110,11 @@ const BENCH_ROW: SlotRef[] = [
 
     /* Save */
     .save-row { padding: 5px 4px; flex-shrink: 0; }
-    .window-closed-bar { background: #2d0a0a; color: #fca5a5; border: 1px solid #7f1d1d; border-radius: 6px; padding: 5px 10px; font-size: 11px; font-weight: 700; text-align: center; margin-bottom: 5px; }
-    .save-btn { width: 100%; padding: 10px; background: #0d0d0d; color: #fff; border: 1px solid #333; border-radius: 8px; font-size: 13px; font-weight: 800; cursor: pointer; transition: all .15s; }
+    .save-btn { width: 100%; padding: 9px; background: #0d0d0d; color: #fff; border: 1px solid #333; border-radius: 8px; font-size: 12px; font-weight: 800; cursor: pointer; transition: all .15s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .save-btn:not(:disabled):hover { background: #1a1a1a; border-color: #555; }
-    .save-btn:disabled { opacity: .4; cursor: not-allowed; }
+    .save-btn:disabled:not([style*="closed"]) { opacity: .4; cursor: not-allowed; }
+    /* When window is closed the button text shows the lock message — style it red */
+    .save-btn:disabled { background: #1a0a0a; border-color: #7f1d1d; color: #fca5a5; opacity: 1; cursor: not-allowed; }
     .msg-bar { padding: 6px 10px; font-size: 11px; font-weight: 600; text-align: center; border-radius: 6px; margin: 0 4px; flex-shrink: 0; }
     .msg-ok  { background: #052e16; color: #86efac; }
     .msg-err { background: #450a0a; color: #fca5a5; }

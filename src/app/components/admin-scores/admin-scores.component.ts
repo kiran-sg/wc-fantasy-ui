@@ -13,8 +13,10 @@ import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { FormsModule, ReactiveFormsModule, FormControl } from '@angular/forms';
 import { UpperCasePipe } from '@angular/common';
 import { ApiService } from '../../services/api.service';
+import { AuthService } from '../../services/auth.service';
 import { AppUser, Match, UserTeam, RoundConfig } from '../../models/models';
 import { PointsGuideComponent } from '../points-guide/points-guide.component';
+import { AdminDbComponent } from '../admin-db/admin-db.component';
 
 @Component({
   selector: 'app-admin-scores',
@@ -23,7 +25,7 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
     MatCardModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule,
     MatTableModule, MatChipsModule, MatExpansionModule,
     MatSelectModule, MatFormFieldModule, MatInputModule, MatAutocompleteModule,
-    FormsModule, ReactiveFormsModule, UpperCasePipe, PointsGuideComponent
+    FormsModule, ReactiveFormsModule, UpperCasePipe, PointsGuideComponent, AdminDbComponent
   ],
   template: `
     @if (globalLoading()) {
@@ -36,7 +38,7 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
     <div class="admin-header">
       <h3 class="page-title">⚡ Admin Panel</h3>
       <div class="admin-nav">
-        @for (item of adminTabs; track item.key) {
+        @for (item of adminTabs(); track item.key) {
           <button class="nav-item" [class.nav-active]="activeTab() === item.key" (click)="setTab(item.key)" [title]="item.label">
             <span class="nav-icon">{{ item.icon }}</span>
             <span class="nav-label">{{ item.label }}</span>
@@ -62,8 +64,7 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
               @if (syncing() === 'matches') { <mat-spinner diameter="14" style="display:inline-block;margin-right:6px"></mat-spinner> }
               📅 Sync Matches
             </button>
-            <button mat-flat-button class="sync-btn players-btn" [disabled]="syncing() !== null" (click)="runSync('players')">
-              @if (syncing() === 'players') { <mat-spinner diameter="14" style="display:inline-block;margin-right:6px"></mat-spinner> }
+            <button mat-flat-button class="sync-btn players-btn" disabled title="Player sync disabled">
               👤 Sync Players
             </button>
             <button mat-flat-button class="sync-btn all-btn" [disabled]="syncing() !== null" (click)="runSync('all')">
@@ -341,6 +342,13 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
               </table>
             </div>
           }
+        </div>
+      }
+
+      <!-- ═══════════════════ DB CONFIG ═══════════════════ -->
+      @if (activeTab() === 'db') {
+        <div class="db-tab-host">
+          <app-admin-db></app-admin-db>
         </div>
       }
 
@@ -969,6 +977,7 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
     .nav-icon { font-size: 15px; }
     .nav-label { font-size: 12px; }
     .admin-content { padding-bottom: 32px; }
+    .db-tab-host { height: calc(100vh - 120px); overflow: hidden; display: flex; flex-direction: column; }
     ::ng-deep .stats-scroll .mat-mdc-header-row { position: sticky; top: 0; z-index: 2; background: #fff; }
 
     /* ── Sync card ── */
@@ -1607,6 +1616,7 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
 })
 export class AdminScoresComponent implements OnInit {
   private api = inject(ApiService);
+  private auth = inject(AuthService);
 
   // Score panel
   matches = signal<Match[]>([]);
@@ -2039,7 +2049,7 @@ export class AdminScoresComponent implements OnInit {
 
   activeTab = signal('scores');
 
-  adminTabs = [
+  private allAdminTabs = [
     { key: 'scores',  icon: '📊', label: 'Scores'  },
     { key: 'users',   icon: '👥', label: 'Users'   },
     { key: 'players', icon: '⚽', label: 'Players' },
@@ -2047,7 +2057,14 @@ export class AdminScoresComponent implements OnInit {
     { key: 'rounds',  icon: '⚙️', label: 'Rounds'  },
     { key: 'guide',   icon: '⭐', label: 'Points'  },
     { key: 'audit',   icon: '🔍', label: 'Audit'   },
+    { key: 'db',      icon: '🗄️', label: 'DB'      },
   ];
+
+  adminTabs = computed(() =>
+    this.auth.username() === 'superadmin'
+      ? this.allAdminTabs
+      : this.allAdminTabs.filter(t => t.key !== 'db')
+  );
 
   setTab(key: string) {
     this.activeTab.set(key);
