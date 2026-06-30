@@ -202,15 +202,16 @@ const BENCH_ROW: SlotRef[] = [
               @for (mp of stageMps; track mp.match.id) {
                 @let isExpanded = expandedHistMatchId() === mp.match.id;
                 @let bd = histBreakdown(mp.match.id, snap);
+                @let canExpand = snap.starters.length > 0 && hasAdequateStats(mp.match.id, snap);
                 <div class="hist-match-row">
-                  <div class="hist-match-hdr" (click)="toggleHistMatch(mp.match.id)">
+                  <div class="hist-match-hdr" [class.hist-match-hdr-disabled]="!canExpand" (click)="canExpand && toggleHistMatch(mp.match.id)">
                     <div class="hist-match-left">
                       <span class="hist-match-teams">{{ mp.match.teamA?.name ?? mp.match.teamALabel }} vs {{ mp.match.teamB?.name ?? mp.match.teamBLabel }}</span>
                       <span class="hist-match-score">{{ mp.match.scoreA ?? '?' }}–{{ mp.match.scoreB ?? '?' }}</span>
                     </div>
                     <div class="hist-match-right">
                       <span class="hist-match-pts">{{ mp.pointsEarned }} pts</span>
-                      <span class="hist-chevron">{{ isExpanded ? '▲' : '▼' }}</span>
+                      @if (canExpand) { <span class="hist-chevron">{{ isExpanded ? '▲' : '▼' }}</span> }
                     </div>
                   </div>
 
@@ -882,6 +883,7 @@ const BENCH_ROW: SlotRef[] = [
       padding: 8px 14px; cursor: pointer; user-select: none;
     }
     .hist-match-hdr:active { background: #111827; }
+    .hist-match-hdr-disabled { cursor: default; opacity: 0.65; }
     .hist-match-left { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
     .hist-match-teams { color: #e5e7eb; font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .hist-match-score { color: #6b7280; font-size: 11px; flex-shrink: 0; }
@@ -1768,7 +1770,18 @@ export class MyTeamComponent implements OnInit {
       error: () => this.snapshotsLoading.set(false)
     });
     this.api.getMyTeamPoints(userId).subscribe({
-      next: pts => this.matchPoints.set(pts as any),
+      next: pts => {
+        this.matchPoints.set(pts as any);
+        // Pre-load stats for all played matches so canExpand coverage check works immediately
+        (pts as any[]).forEach((mp: any) => {
+          if ((mp.pointsEarned ?? 0) > 0 && !this.matchStatsCache[mp.match.id]) {
+            this.api.getMatchStats(mp.match.id).subscribe({
+              next: stats => { this.matchStatsCache[mp.match.id] = stats; },
+              error: () => { this.matchStatsCache[mp.match.id] = []; }
+            });
+          }
+        });
+      },
       error: () => {}
     });
     this.api.getPlayerPoints().subscribe({
@@ -1813,6 +1826,14 @@ export class MyTeamComponent implements OnInit {
         error: () => { this.matchStatsCache[matchId] = []; }
       });
     }
+  }
+
+  hasAdequateStats(matchId: number, snap: any): boolean {
+    const stats: any[] = this.matchStatsCache[matchId];
+    if (!stats) return true; // not loaded yet — optimistically allow (will show loading state)
+    const allIds = new Set([...(snap.starters || []), ...(snap.bench || [])].map((p: any) => p.id));
+    const covered = stats.filter((s: any) => allIds.has(s.player?.id)).length;
+    return covered >= 5;
   }
 
   histBreakdown(matchId: number, snap: any): any[] {
