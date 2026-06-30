@@ -532,11 +532,11 @@ import { AdminDbComponent } from '../admin-db/admin-db.component';
                         @for (r of selectedUserTransfers(); track r.stage) {
                           <div class="sq-tr-row" [class.sq-tr-penalty]="r.penaltyPoints > 0">
                             <span class="sq-tr-stage">{{ stageLabel(r.stage) }}</span>
-                            <span class="sq-tr-made">{{ r.transfersMade }} made</span>
+                            <span class="sq-tr-made">{{ r.transfersMade }} / {{ freeTransfersFor(r.stage) }} free</span>
                             @if (r.penaltyPoints > 0) {
                               <span class="sq-tr-pen">−{{ r.penaltyPoints }} pts</span>
                             } @else {
-                              <span class="sq-tr-ok">free</span>
+                              <span class="sq-tr-ok">✓</span>
                             }
                           </div>
                         }
@@ -2544,6 +2544,10 @@ export class AdminScoresComponent implements OnInit {
 
   stageLabel(stage: string): string {
     return this.STAGE_LABELS[stage] ?? stage;
+  }
+
+  freeTransfersFor(stage: string): number {
+    return this.rcRows().find(r => r.stage === stage)?.freeTransfers ?? 4;
   }
 
   matchLabel(match: Match): string {
