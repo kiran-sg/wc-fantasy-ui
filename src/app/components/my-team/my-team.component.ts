@@ -202,7 +202,7 @@ const BENCH_ROW: SlotRef[] = [
               @for (mp of stageMps; track mp.match.id) {
                 @let isExpanded = expandedHistMatchId() === mp.match.id;
                 @let bd = histBreakdown(mp.match.id, snap);
-                @let canExpand = snap.starters.length > 0 && hasAdequateStats(mp.match.id, snap);
+                @let canExpand = snap.starters.length > 0;
                 <div class="hist-match-row">
                   <div class="hist-match-hdr" [class.hist-match-hdr-disabled]="!canExpand" (click)="canExpand && toggleHistMatch(mp.match.id)">
                     <div class="hist-match-left">
@@ -1770,18 +1770,7 @@ export class MyTeamComponent implements OnInit {
       error: () => this.snapshotsLoading.set(false)
     });
     this.api.getMyTeamPoints(userId).subscribe({
-      next: pts => {
-        this.matchPoints.set(pts as any);
-        // Pre-load stats for all played matches so canExpand coverage check works immediately
-        (pts as any[]).forEach((mp: any) => {
-          if ((mp.pointsEarned ?? 0) > 0 && !this.matchStatsCache[mp.match.id]) {
-            this.api.getMatchStats(mp.match.id).subscribe({
-              next: stats => { this.matchStatsCache[mp.match.id] = stats; },
-              error: () => { this.matchStatsCache[mp.match.id] = []; }
-            });
-          }
-        });
-      },
+      next: pts => this.matchPoints.set(pts as any),
       error: () => {}
     });
     this.api.getPlayerPoints().subscribe({
@@ -1826,14 +1815,6 @@ export class MyTeamComponent implements OnInit {
         error: () => { this.matchStatsCache[matchId] = []; }
       });
     }
-  }
-
-  hasAdequateStats(matchId: number, snap: any): boolean {
-    const stats: any[] = this.matchStatsCache[matchId];
-    if (!stats) return true; // not loaded yet — optimistically allow (will show loading state)
-    const allIds = new Set([...(snap.starters || []), ...(snap.bench || [])].map((p: any) => p.id));
-    const covered = stats.filter((s: any) => allIds.has(s.player?.id)).length;
-    return covered >= 5;
   }
 
   histBreakdown(matchId: number, snap: any): any[] {
