@@ -1,6 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { ApiService } from '../../services/api.service';
-import { AppUser } from '../../models/models';
+import { LeaderboardEntry } from '../../models/models';
 
 @Component({
   selector: 'app-leaderboard',
@@ -21,16 +21,16 @@ import { AppUser } from '../../models/models';
             </tr>
           </thead>
           <tbody>
-            @for (u of overall(); track u.id; let i = $index) {
-              <tr [class.lb-top3]="i < 3">
+            @for (entry of overall(); track entry.user.id) {
+              <tr [class.lb-top3]="entry.rank <= 3">
                 <td class="col-rank">
-                  @if (i === 0) { <span class="medal gold">🥇</span> }
-                  @else if (i === 1) { <span class="medal silver">🥈</span> }
-                  @else if (i === 2) { <span class="medal bronze">🥉</span> }
-                  @else { <span class="rank-num">{{ i + 1 }}</span> }
+                  @if (entry.rank === 1) { <span class="medal gold">🥇</span> }
+                  @else if (entry.rank === 2) { <span class="medal silver">🥈</span> }
+                  @else if (entry.rank === 3) { <span class="medal bronze">🥉</span> }
+                  @else { <span class="rank-num">{{ entry.rank }}</span> }
                 </td>
-                <td class="col-name">{{ u.displayName || u.username }}</td>
-                <td class="col-pts">{{ u.totalPoints }}</td>
+                <td class="col-name">{{ entry.user.displayName || entry.user.username }}</td>
+                <td class="col-pts">{{ entry.user.totalPoints }}</td>
               </tr>
             }
             @if (overall().length === 0) {
@@ -82,9 +82,9 @@ import { AppUser } from '../../models/models';
 })
 export class LeaderboardComponent implements OnInit {
   private api = inject(ApiService);
-  overall = signal<AppUser[]>([]);
+  overall = signal<LeaderboardEntry[]>([]);
 
   ngOnInit() {
-    this.api.getOverallLeaderboard().subscribe(u => this.overall.set(u));
+    this.api.getOverallLeaderboard().subscribe(entries => this.overall.set(entries));
   }
 }

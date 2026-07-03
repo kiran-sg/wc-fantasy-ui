@@ -47,6 +47,11 @@ export interface UserSquad {
   manualChangesMade: boolean;
 }
 
+export interface LeaderboardEntry {
+  rank: number;
+  user: AppUser;
+}
+
 export interface AppUser {
   id: number;
   username: string;

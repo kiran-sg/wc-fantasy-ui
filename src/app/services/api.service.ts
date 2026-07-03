@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
-import { Team, Player, Match, UserSquad, AppUser, UserTeam, UserTeamMatchPoints, UserTransferRecord, UserTeamSnapshot, RoundConfig } from '../models/models';
+import { Team, Player, Match, UserSquad, AppUser, LeaderboardEntry, UserTeam, UserTeamMatchPoints, UserTransferRecord, UserTeamSnapshot, RoundConfig } from '../models/models';
 import { environment } from '../../environments/environment';
 
 @Injectable({ providedIn: 'root' })
@@ -55,8 +55,8 @@ export class ApiService {
     return this.http.get<UserSquad[]>(`${this.base}/squads/${userId}`);
   }
 
-  getOverallLeaderboard(): Observable<AppUser[]> {
-    return this.http.get<AppUser[]>(`${this.base}/leaderboard`);
+  getOverallLeaderboard(): Observable<LeaderboardEntry[]> {
+    return this.http.get<LeaderboardEntry[]>(`${this.base}/leaderboard`);
   }
 
   adminGetAllUsers(): Observable<AppUser[]> {
