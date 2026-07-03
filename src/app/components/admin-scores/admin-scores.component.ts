@@ -342,6 +342,53 @@ import { AdminDbComponent } from '../admin-db/admin-db.component';
               </table>
             </div>
           }
+
+          <!-- Country limit audit -->
+          <div class="audit-toolbar" style="margin-top:28px">
+            <span class="audit-title">🌍 Country Limit Audit</span>
+            <button class="audit-refresh-btn" [disabled]="countryAuditLoading()" (click)="runCountryAudit()">
+              @if (countryAuditLoading()) { <mat-spinner diameter="14" style="display:inline-block;margin-right:6px"></mat-spinner> }
+              Run Check
+            </button>
+          </div>
+          <p class="subtitle">Lists users whose squad has more players from the same country than the current stage allows (full squad of 15).</p>
+
+          @if (countryAuditMsg()) {
+            <div class="audit-msg" [class.audit-ok]="countryAuditRows().length === 0">{{ countryAuditMsg() }}</div>
+          }
+
+          @if (countryAuditLoading()) {
+            <div class="audit-loading"><mat-spinner diameter="32"></mat-spinner></div>
+          } @else if (countryAuditRows().length > 0) {
+            @for (user of countryAuditRows(); track user.userId) {
+              <div class="cl-user-block">
+                <div class="cl-user-header">
+                  <div class="cl-user-info">
+                    <span class="audit-display">{{ user.displayName || user.username }}</span>
+                    <span class="audit-uid">#{{ user.userId }}</span>
+                  </div>
+                  <span class="cl-stage-badge">Stage: {{ user.stage }}</span>
+                </div>
+                @for (v of user.violations; track v.countryId) {
+                  <div class="cl-violation">
+                    <div class="cl-violation-header">
+                      <span class="cl-country">{{ v.countryName }}</span>
+                      <span class="cl-count-badge">{{ v.count }} / {{ v.limit }} max</span>
+                    </div>
+                    <div class="cl-players">
+                      @for (p of v.players; track p.id) {
+                        <div class="cl-player" [class.cl-player-bench]="p.section === 'BENCH'">
+                          <span class="pos-tag" [class]="p.position">{{ p.position }}</span>
+                          <span class="cl-pname">{{ p.name }}</span>
+                          <span class="audit-section" [class.bench-sec]="p.section === 'BENCH'">{{ p.section }}</span>
+                        </div>
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
+            }
+          }
         </div>
       }
 
@@ -1612,6 +1659,21 @@ import { AdminDbComponent } from '../admin-db/admin-db.component';
     .pos-tag.MID { background: #e3f2fd; color: #1565c0; }
     .pos-tag.FWD { background: #fce4ec; color: #ad1457; }
     .pos-tag.mismatch { outline: 2px solid #ef4444; }
+
+    /* ── Country Limit Audit ── */
+    .cl-user-block { border: 1px solid #fecaca; border-radius: 10px; margin-top: 12px; overflow: hidden; }
+    .cl-user-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: #fff5f5; border-bottom: 1px solid #fecaca; gap: 10px; flex-wrap: wrap; }
+    .cl-user-info { display: flex; flex-direction: column; gap: 1px; }
+    .cl-stage-badge { font-size: 11px; font-weight: 700; background: #fee2e2; color: #c62828; padding: 2px 8px; border-radius: 6px; }
+    .cl-violation { padding: 10px 14px; border-top: 1px solid #f5f5f5; }
+    .cl-violation:first-child { border-top: none; }
+    .cl-violation-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .cl-country { font-size: 14px; font-weight: 700; color: #1a237e; }
+    .cl-count-badge { font-size: 12px; font-weight: 800; background: #ef4444; color: #fff; padding: 2px 8px; border-radius: 8px; }
+    .cl-players { display: flex; flex-direction: column; gap: 5px; }
+    .cl-player { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: #fff; border: 1px solid #fecaca; border-radius: 7px; }
+    .cl-player.cl-player-bench { background: #fff8f0; border-color: #fed7aa; opacity: 0.85; }
+    .cl-pname { font-size: 13px; font-weight: 500; color: #1a1a1a; flex: 1; }
   `]
 })
 export class AdminScoresComponent implements OnInit {
@@ -2127,6 +2189,24 @@ export class AdminScoresComponent implements OnInit {
         if (rows.length === 0) this.auditMsg.set('No position mismatches found.');
       },
       error: () => { this.auditLoading.set(false); this.auditMsg.set('Failed to load audit data.'); }
+    });
+  }
+
+  // Country limit audit
+  countryAuditRows    = signal<any[]>([]);
+  countryAuditLoading = signal(false);
+  countryAuditMsg     = signal('');
+
+  runCountryAudit() {
+    this.countryAuditLoading.set(true);
+    this.countryAuditMsg.set('');
+    this.api.adminCountryLimitAudit().subscribe({
+      next: rows => {
+        this.countryAuditRows.set(rows);
+        this.countryAuditLoading.set(false);
+        if (rows.length === 0) this.countryAuditMsg.set('All squads are within country limits.');
+      },
+      error: () => { this.countryAuditLoading.set(false); this.countryAuditMsg.set('Failed to load country audit data.'); }
     });
   }
 

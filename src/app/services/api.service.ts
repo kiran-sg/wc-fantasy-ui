@@ -211,4 +211,8 @@ export class ApiService {
   adminSquadAudit(): Observable<any[]> {
     return this.http.get<any[]>(`${this.base}/admin/squad-audit`);
   }
+
+  adminCountryLimitAudit(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.base}/admin/country-limit-audit`);
+  }
 }

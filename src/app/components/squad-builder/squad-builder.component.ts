@@ -160,15 +160,27 @@ function parseFormation(f: string): string[] {
           <div class="empty-pick">No {{ pickerPos() }} players available</div>
         }
         @for (p of pickerPlayers(); track p.id) {
-          <div class="pick-item" (click)="selectPlayer(p)">
-            <div class="pi-dot" [style.background]="posColor(p.position)">{{ p.position }}</div>
-            <div class="pi-info">
-              <span class="pi-name">{{ p.name }}</span>
-              <span class="pi-team">{{ p.team.name }}</span>
+          @if (limitedTeamIds().has(p.team.id)) {
+            <div class="pick-item pick-limited">
+              <div class="pi-dot" [style.background]="posColor(p.position)">{{ p.position }}</div>
+              <div class="pi-info">
+                <span class="pi-name">{{ p.name }}</span>
+                <span class="pi-team">{{ p.team.name }} · max {{ countryLimit() }} reached</span>
+              </div>
+              <span class="pi-price">{{ fmtM(p.price) }}</span>
+              <div class="pi-blocked">&#128683;</div>
             </div>
-            <span class="pi-price">{{ fmtM(p.price) }}</span>
-            <div class="pi-add">+</div>
-          </div>
+          } @else {
+            <div class="pick-item" (click)="selectPlayer(p)">
+              <div class="pi-dot" [style.background]="posColor(p.position)">{{ p.position }}</div>
+              <div class="pi-info">
+                <span class="pi-name">{{ p.name }}</span>
+                <span class="pi-team">{{ p.team.name }}</span>
+              </div>
+              <span class="pi-price">{{ fmtM(p.price) }}</span>
+              <div class="pi-add">+</div>
+            </div>
+          }
         }
       </div>
     </div>
@@ -339,6 +351,11 @@ function parseFormation(f: string): string[] {
               color: #82b1ff; font-size: 18px; display: flex; align-items: center;
               justify-content: center; flex-shrink: 0; font-weight: 300; }
     .empty-pick { padding: 20px; text-align: center; color: #5c7a9e; font-size: 13px; }
+    .pick-limited { opacity: 0.45; cursor: not-allowed; }
+    .pick-limited .pi-team { color: #ef9a9a; }
+    .pi-blocked { width: 28px; height: 28px; border-radius: 50%; background: #2a1a1a;
+                  color: #ef5350; font-size: 16px; display: flex; align-items: center;
+                  justify-content: center; flex-shrink: 0; }
 
     /* AUTO-PICK / CLEAR TOOLBAR */
     .toolbar { background: #0f1923; border-top: 1px solid #1e2d4a;
@@ -466,6 +483,24 @@ export class SquadBuilderComponent implements OnInit {
     return s.type === 'xi' ? this.getPlayer(s.index) : this.getBenchPlayer(s.index);
   });
 
+  squadTeamCounts = computed(() => {
+    const counts = new Map<number, number>();
+    for (const id of [...this.startingIds(), ...this.benchIds()]) {
+      const p = this.allPlayers().find(x => x.id === id);
+      if (p) counts.set(p.team.id, (counts.get(p.team.id) ?? 0) + 1);
+    }
+    return counts;
+  });
+
+  limitedTeamIds = computed(() => {
+    const limit = this.countryLimit();
+    const limited = new Set<number>();
+    this.squadTeamCounts().forEach((count, teamId) => {
+      if (count >= limit) limited.add(teamId);
+    });
+    return limited;
+  });
+
   pickerPlayers = computed(() => {
     const pos  = this.pickerPos();
     const used = new Set([...this.startingIds(), ...this.benchIds()]);
@@ -578,7 +613,7 @@ export class SquadBuilderComponent implements OnInit {
     const players   = this.allPlayers();
     const positions = this.slotPositions(); // 11 positions in formation order
 
-    // Country limit: the configured stage limit assumes picking from 32 teams.
+    // Country limit applies to the full squad of 15 (starters + bench).
     // In a 2-team match we must distribute 15 slots across only 2 teams,
     // so the effective cap is max(stageLimit, ceil(15 / numTeams)).
     const stageLimit  = this.countryLimit();
