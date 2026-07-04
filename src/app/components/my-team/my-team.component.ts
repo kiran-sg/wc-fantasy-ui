@@ -200,57 +200,16 @@ const BENCH_ROW: SlotRef[] = [
               <div class="hist-no-matches">No matches played yet this round.</div>
             } @else {
               @for (mp of stageMps; track mp.match.id) {
-                @let isExpanded = expandedHistMatchId() === mp.match.id;
-                @let bd = histBreakdown(mp.match.id, snap);
-                @let canExpand = snap.starters.length > 0;
                 <div class="hist-match-row">
-                  <div class="hist-match-hdr" [class.hist-match-hdr-disabled]="!canExpand" (click)="canExpand && toggleHistMatch(mp.match.id)">
+                  <div class="hist-match-hdr">
                     <div class="hist-match-left">
                       <span class="hist-match-teams">{{ mp.match.teamA?.name ?? mp.match.teamALabel }} vs {{ mp.match.teamB?.name ?? mp.match.teamBLabel }}</span>
                       <span class="hist-match-score">{{ mp.match.scoreA ?? '?' }}–{{ mp.match.scoreB ?? '?' }}</span>
                     </div>
                     <div class="hist-match-right">
                       <span class="hist-match-pts">{{ mp.pointsEarned }} pts</span>
-                      @if (canExpand) { <span class="hist-chevron">{{ isExpanded ? '▲' : '▼' }}</span> }
                     </div>
                   </div>
-
-                  @if (isExpanded) {
-                    @if (bd.length === 0) {
-                      <div class="hist-bd-loading">Loading…</div>
-                    } @else {
-                      @let capPlayed = histCaptainPlayed(bd, snap.captain?.id ?? -1);
-                      @for (s of bd; track s.player.id) {
-                        @let isCap = s.player.id === snap.captain?.id;
-                        @let isVC  = s.player.id === snap.viceCaptain?.id;
-                        @let gets2x = isCap || (isVC && !capPlayed);
-                        @let ppts = calcPoints(s);
-                        @let isBench = !s._isStarter;
-                        <div class="hist-bd-row" [class.hist-bd-cap]="isCap" [class.hist-bd-vc]="isVC" [class.hist-bd-bench]="isBench">
-                          <span class="hist-pos-dot" [style.background]="posColor(s.player.position)">{{ s.player.position }}</span>
-                          <span class="hist-bd-name">
-                            {{ s.player.name }}
-                            @if (isCap) { <span class="hist-cap">C</span> }
-                            @if (isVC)  { <span class="hist-vc">V</span> }
-                            @if (isBench) { <span class="hist-sub">SUB</span> }
-                          </span>
-                          <span class="hist-bd-stats">
-                            @if (s.minutesPlayed > 0) { <span class="hbs">⏱{{ s.minutesPlayed }}'</span> }
-                            @if ((s.goals || 0) > 0)  { <span class="hbs good">⚽{{ s.goals }}</span> }
-                            @if ((s.assists || 0) > 0) { <span class="hbs good">🅰️{{ s.assists }}</span> }
-                            @if (s.cleanSheet && s.minutesPlayed >= 60) { <span class="hbs good">🛡️</span> }
-                            @if ((s.yellowCards || 0) > 0) { <span class="hbs bad">🟨</span> }
-                            @if ((s.redCards || 0) > 0)    { <span class="hbs bad">🟥</span> }
-                            @if (s.player.position === 'GK' && (s.saves || 0) > 0) { <span class="hbs">🧤{{ s.saves }}</span> }
-                          </span>
-                          <span class="hist-bd-pts" [class.hist-pts-pos]="ppts > 0" [class.hist-pts-neg]="ppts < 0" [class.hist-bd-cap-pts]="gets2x">
-                            {{ gets2x ? ppts * 2 : ppts }}
-                            @if (gets2x) { <span class="hbs-x2">×2</span> }
-                          </span>
-                        </div>
-                      }
-                    }
-                  }
                 </div>
               }
             }
@@ -853,26 +812,6 @@ const BENCH_ROW: SlotRef[] = [
       font-size: 9px; font-weight: 800; color: #fff; padding: 2px 5px;
       border-radius: 4px; flex-shrink: 0; min-width: 30px; text-align: center;
     }
-    .hist-player-name {
-      flex: 1; color: #e5e7eb; font-size: 13px; font-weight: 600;
-      display: flex; align-items: center; gap: 4px; overflow: hidden;
-      text-overflow: ellipsis; white-space: nowrap;
-    }
-    .hist-cap {
-      background: #fbbf24; color: #000; font-size: 9px; font-weight: 900;
-      padding: 1px 5px; border-radius: 4px; flex-shrink: 0;
-    }
-    .hist-vc {
-      background: #818cf8; color: #000; font-size: 9px; font-weight: 900;
-      padding: 1px 5px; border-radius: 4px; flex-shrink: 0;
-    }
-    .hist-team-name { color: #6b7280; font-size: 11px; flex-shrink: 0; }
-    .hist-player-pts {
-      font-size: 13px; font-weight: 800; color: #9ca3af; min-width: 28px; text-align: right;
-    }
-    .hist-pts-pos { color: #4ade80; }
-    .hist-pts-neg { color: #f87171; }
-    .hist-bench-pts { color: #4b5563; }
 
     .hist-no-matches { color: #4b5563; font-size: 12px; padding: 10px 14px; }
 
@@ -880,42 +819,13 @@ const BENCH_ROW: SlotRef[] = [
     .hist-match-row { border-top: 1px solid #374151; }
     .hist-match-hdr {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 8px 14px; cursor: pointer; user-select: none;
+      padding: 8px 14px;
     }
-    .hist-match-hdr:active { background: #111827; }
-    .hist-match-hdr-disabled { cursor: default; opacity: 0.65; }
     .hist-match-left { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
     .hist-match-teams { color: #e5e7eb; font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .hist-match-score { color: #6b7280; font-size: 11px; flex-shrink: 0; }
     .hist-match-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
     .hist-match-pts { color: #4ade80; font-size: 13px; font-weight: 800; }
-    .hist-chevron { color: #6b7280; font-size: 10px; }
-
-    /* Breakdown rows */
-    .hist-bd-loading { color: #6b7280; font-size: 12px; padding: 8px 14px; }
-    .hist-bd-row {
-      display: flex; align-items: center; gap: 6px;
-      padding: 5px 14px; border-top: 1px solid #1f2937; background: #111827;
-    }
-    .hist-bd-cap   { background: #1c1a00 !important; }
-    .hist-bd-vc    { background: #0d0d1f !important; }
-    .hist-bd-bench { opacity: 0.8; border-top-style: dashed !important; }
-    .hist-sub {
-      background: #374151; color: #9ca3af; font-size: 8px; font-weight: 700;
-      padding: 1px 4px; border-radius: 3px; flex-shrink: 0; letter-spacing: 0.3px;
-    }
-    .hist-bd-name {
-      flex: 1; min-width: 0; color: #d1d5db; font-size: 12px; font-weight: 600;
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-      display: flex; align-items: center; gap: 4px;
-    }
-    .hist-bd-stats { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
-    .hbs { font-size: 10px; color: #9ca3af; }
-    .hbs.good { color: #4ade80; }
-    .hbs.bad  { color: #f87171; }
-    .hist-bd-pts { font-size: 12px; font-weight: 800; color: #9ca3af; min-width: 28px; text-align: right; flex-shrink: 0; }
-    .hist-bd-cap-pts { color: #fbbf24; }
-    .hbs-x2 { font-size: 9px; color: #fbbf24; font-weight: 900; }
 
     .hist-group-note {
       color: #4b5563; font-size: 11px; text-align: center; padding: 8px 0;
@@ -1547,9 +1457,6 @@ export class MyTeamComponent implements OnInit {
   matchPoints        = signal<{ stage: string; match: any; pointsEarned: number }[]>([]);
   ppPoints           = signal<Record<number, number>>({});
   histTransferMap    = signal<Record<string, UserTransferRecord>>({});
-  matchStatsCache    : Record<number, any[]> = {};
-  expandedHistMatchId = signal<number | null>(null);
-
   private originalSquadIds = new Set<number>();
 
   // ── Computed ──────────────────────────────────────────────────────────────
@@ -1763,8 +1670,6 @@ export class MyTeamComponent implements OnInit {
 
   loadHistory(userId: number) {
     this.snapshotsLoading.set(true);
-    this.expandedHistMatchId.set(null);
-    this.matchStatsCache = {};
     this.api.getTeamSnapshots(userId).subscribe({
       next: snaps => { this.snapshots.set(snaps); this.snapshotsLoading.set(false); },
       error: () => this.snapshotsLoading.set(false)
@@ -1804,54 +1709,6 @@ export class MyTeamComponent implements OnInit {
 
   matchPointsForStage(stage: string): any[] {
     return this.matchPoints().filter((p: any) => p.stage === stage);
-  }
-
-  toggleHistMatch(matchId: number) {
-    if (this.expandedHistMatchId() === matchId) { this.expandedHistMatchId.set(null); return; }
-    this.expandedHistMatchId.set(matchId);
-    if (!this.matchStatsCache[matchId]) {
-      this.api.getMatchStats(matchId).subscribe({
-        next: stats => { this.matchStatsCache[matchId] = stats; },
-        error: () => { this.matchStatsCache[matchId] = []; }
-      });
-    }
-  }
-
-  histBreakdown(matchId: number, snap: any): any[] {
-    const stats = this.matchStatsCache[matchId];
-    if (!stats || !snap) return [];
-    const starterIds = new Set((snap.starters || []).map((p: any) => p.id));
-    const benchIds   = new Set((snap.bench    || []).map((p: any) => p.id));
-    return stats
-      .filter((s: any) => (starterIds.has(s.player?.id) || benchIds.has(s.player?.id)) && (s.minutesPlayed ?? 0) > 0)
-      .map((s: any) => ({ ...s, _isStarter: starterIds.has(s.player?.id) }))
-      .sort((a: any, b: any) => this.calcPoints(b) - this.calcPoints(a));
-  }
-
-  histCaptainPlayed(breakdown: any[], captainId: number): boolean {
-    const cap = breakdown.find((s: any) => s.player?.id === captainId);
-    return cap ? (cap.minutesPlayed ?? 0) > 0 : false;
-  }
-
-  calcPoints(s: any): number {
-    if (!s.minutesPlayed) return 0;
-    let pts = 0;
-    const pos = s.player?.position || '';
-    pts += s.minutesPlayed >= 60 ? 2 : 1;
-    const gp: Record<string, number> = { GK: 9, DEF: 7, MID: 6, FWD: 5 };
-    pts += (s.goals || 0) * (gp[pos] ?? 6);
-    pts += (s.assists || 0) * 3;
-    if (s.cleanSheet && s.minutesPlayed >= 60) {
-      if (pos === 'GK' || pos === 'DEF') pts += 5;
-      else if (pos === 'MID') pts += 1;
-    }
-    if (pos === 'GK' || pos === 'DEF') { const gc = s.goalsConceded || 0; if (gc > 1) pts -= (gc - 1); }
-    pts -= (s.yellowCards || 0);
-    pts -= (s.redCards || 0) * 2;
-    pts -= (s.ownGoals || 0) * 2;
-    if (pos === 'GK') pts += Math.floor((s.saves || 0) / 3);
-    if (pos === 'FWD') pts += Math.floor((s.shotsOnTarget || 0) / 2);
-    return pts;
   }
 
   transfersForStage(stage: string): UserTransferRecord | null {

@@ -659,7 +659,7 @@ import { AdminDbComponent } from '../admin-db/admin-db.component';
                       </div>
                       @for (mp of selectedUserMatchPoints(); track mp.id) {
                         <div class="pts-match-row">
-                          <div class="pts-match-header" (click)="toggleMatchBreakdown(mp.match.id)">
+                          <div class="pts-match-header">
                             <div class="pts-match-left">
                               <span class="pts-stage-tag">{{ mp.stage }}</span>
                               <span class="pts-match-name">{{ teamName(mp.match, 'A') }} vs {{ teamName(mp.match, 'B') }}</span>
@@ -667,67 +667,8 @@ import { AdminDbComponent } from '../admin-db/admin-db.component';
                             </div>
                             <div class="pts-match-right">
                               <span class="pts-earned">{{ mp.pointsEarned }} pts</span>
-                              <mat-icon class="pts-chevron">{{ expandedMatchId() === mp.match.id ? 'expand_less' : 'expand_more' }}</mat-icon>
                             </div>
                           </div>
-
-                          @if (expandedMatchId() === mp.match.id) {
-                            @let breakdown = breakdownForMatch(mp.match.id, team);
-                            @if (breakdown.length === 0) {
-                              <div class="pts-loading">
-                                <mat-spinner diameter="18"></mat-spinner>
-                                <span>Loading...</span>
-                              </div>
-                            } @else {
-                              <div class="pts-player-table">
-                                @let capPlayed = captainPlayed(breakdown, team.captain.id);
-                                @for (s of breakdown; track s.player.id) {
-                                  @let isCap = s.player.id === team.captain.id;
-                                  @let isVC = s.player.id === team.viceCaptain.id;
-                                  @let gets2x = isCap || (isVC && !capPlayed);
-                                  @let ppts = calcPoints(s);
-                                  <div class="pts-player-row" [class.pts-row-cap]="isCap" [class.pts-row-vc]="isVC">
-                                    <div class="pts-p-info">
-                                      <span class="pts-pos-tag" [class]="s.player.position">{{ s.player.position }}</span>
-                                      <span class="pts-p-name">{{ s.player.name }}</span>
-                                      @if (isCap) { <span class="pts-cap-badge">C</span> }
-                                      @if (isVC) { <span class="pts-vc-badge">VC</span> }
-                                    </div>
-                                    <div class="pts-p-stats">
-                                      @if (s.minutesPlayed > 0) {
-                                        <span class="pts-stat" title="Minutes">⏱ {{ s.minutesPlayed }}'</span>
-                                      }
-                                      @if ((s.goals || 0) > 0) {
-                                        <span class="pts-stat good" title="Goals">⚽ {{ s.goals }}</span>
-                                      }
-                                      @if ((s.assists || 0) > 0) {
-                                        <span class="pts-stat good" title="Assists">🅰️ {{ s.assists }}</span>
-                                      }
-                                      @if (s.cleanSheet && s.minutesPlayed >= 60) {
-                                        <span class="pts-stat good" title="Clean sheet">🛡️ CS</span>
-                                      }
-                                      @if ((s.yellowCards || 0) > 0) {
-                                        <span class="pts-stat bad" title="Yellow card">🟨 {{ s.yellowCards }}</span>
-                                      }
-                                      @if ((s.redCards || 0) > 0) {
-                                        <span class="pts-stat bad" title="Red card">🟥 {{ s.redCards }}</span>
-                                      }
-                                      @if (s.player.position === 'GK' && (s.saves || 0) > 0) {
-                                        <span class="pts-stat" title="Saves">🧤 {{ s.saves }}</span>
-                                      }
-                                      @if (s.player.position === 'FWD' && (s.shotsOnTarget || 0) > 0) {
-                                        <span class="pts-stat" title="Shots on target">🎯 {{ s.shotsOnTarget }}</span>
-                                      }
-                                    </div>
-                                    <div class="pts-p-total" [class.cap-pts]="gets2x">
-                                      {{ gets2x ? ppts * 2 : ppts }}
-                                      @if (gets2x) { <span class="x2-tag">×2</span> }
-                                    </div>
-                                  </div>
-                                }
-                              </div>
-                            }
-                          }
                         </div>
                       }
                     </div>
@@ -1365,8 +1306,7 @@ import { AdminDbComponent } from '../admin-db/admin-db.component';
     .pts-bd-icon { font-size: 18px; width: 18px; height: 18px; color: #3949ab; }
 
     .pts-match-row { border-top: 1px solid #f0f0f0; }
-    .pts-match-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 18px; cursor: pointer; transition: background 0.12s; user-select: none; }
-    .pts-match-header:hover { background: #f5f7ff; }
+    .pts-match-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 18px; }
     .pts-match-left { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
     .pts-stage-tag { font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 4px; background: #e8eaf6; color: #3949ab; text-transform: uppercase; flex-shrink: 0; }
     .pts-match-name { font-size: 12px; font-weight: 600; color: #222; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
