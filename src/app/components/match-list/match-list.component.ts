@@ -141,14 +141,9 @@ export class MatchListComponent implements OnInit {
   ngOnInit() {
     this.api.getMatches().subscribe({
       next: (m) => {
-        const STAGE_ORDER: Record<string, number> = { R32: 1, R16: 2, QF: 3, SF: 4, LF: 5, FINAL: 6 };
         const sorted = m
           .filter(x => x.stage !== 'GROUP')
-          .sort((a, b) => {
-            const so = (STAGE_ORDER[a.stage] ?? 99) - (STAGE_ORDER[b.stage] ?? 99);
-            if (so !== 0) return so;
-            return new Date(a.matchTime).getTime() - new Date(b.matchTime).getTime();
-          });
+          .sort((a, b) => new Date(a.matchTime).getTime() - new Date(b.matchTime).getTime());
         this.matches.set(sorted);
         this.loading.set(false);
         // Fetch stats for completed/live matches
@@ -216,7 +211,7 @@ export class MatchListComponent implements OnInit {
   }
 
   matchLabel(match: Match): string {
-    if (match.stage === 'GROUP' || !match.matchNumber) return this.stageLabel(match.stage);
+    if (match.stage === 'GROUP' || match.stage === 'LF' || match.stage === 'FINAL' || !match.matchNumber) return this.stageLabel(match.stage);
     return `${this.stageLabel(match.stage)} · Match ${match.matchNumber}`;
   }
 
