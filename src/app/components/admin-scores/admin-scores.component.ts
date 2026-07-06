@@ -100,6 +100,46 @@ import { AdminDbComponent } from '../admin-db/admin-db.component';
           </div>
         }
 
+        @if (pastAdminMatches().length > 0) {
+          <div class="past-banner" (click)="showPastAdmin.set(!showPastAdmin())">
+            <span>🕘 {{ pastAdminMatches().length }} previous match{{ pastAdminMatches().length > 1 ? 'es' : '' }} with results saved</span>
+            <span class="past-chevron">{{ showPastAdmin() ? '▲' : '▼' }}</span>
+          </div>
+          @if (showPastAdmin()) {
+            @for (match of filteredPastAdminMatches(); track match.id) {
+              <mat-card class="match-card past-match-card" appearance="outlined">
+                <div class="match-header">
+                  <div class="header-left">
+                    <span class="stage-chip">{{ matchLabel(match) }}</span>
+                    <span class="status-chip completed">COMPLETED</span>
+                  </div>
+                  <span class="match-time">{{ formatDate(match.matchTime) }}</span>
+                </div>
+                <div class="teams-row">
+                  <span class="team">{{ teamName(match, 'A') }}</span>
+                  <span class="score">{{ match.scoreA }} – {{ match.scoreB }}</span>
+                  <span class="team">{{ teamName(match, 'B') }}</span>
+                </div>
+                <div class="actions-row">
+                  <button class="espn-btn"
+                    [disabled]="previewing() === match.id || saving() === match.id"
+                    (click)="previewFromEspn(match)">
+                    @if (previewing() === match.id) {
+                      <mat-spinner diameter="16" class="espn-spinner"></mat-spinner>
+                    } @else {
+                      <mat-icon class="espn-icon">refresh</mat-icon>
+                    }
+                    <span>{{ previewing() === match.id ? 'Fetching…' : 'Re-fetch from ESPN' }}</span>
+                  </button>
+                </div>
+                @if (resultMsg() && resultMatchId() === match.id) {
+                  <div class="result-msg" [class.error]="resultMsg().startsWith('❌')">{{ resultMsg() }}</div>
+                }
+              </mat-card>
+            }
+          }
+        }
+
         @for (match of filteredMatches(); track match.id) {
           <mat-card class="match-card" [class.match-card-preview]="previewMatchId() === match.id" appearance="outlined">
             <div class="match-header">
@@ -981,6 +1021,18 @@ import { AdminDbComponent } from '../admin-db/admin-db.component';
     .sync-result { margin-top: 10px; font-size: 12px; font-weight: 600; color: #2e7d32; padding: 6px 10px; background: #f1f8e9; border-radius: 6px; }
     .sync-result.sync-err { color: #c62828; background: #ffebee; }
 
+    /* ── Past matches banner ── */
+    .past-banner {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 16px; margin-bottom: 12px; border-radius: 10px;
+      background: #f3f4f6; border: 1px solid #d1d5db;
+      cursor: pointer; font-size: 13px; font-weight: 600; color: #374151;
+      user-select: none;
+    }
+    .past-banner:hover { background: #e5e7eb; }
+    .past-chevron { font-size: 11px; color: #6b7280; }
+    .past-match-card { opacity: 0.75; }
+
     /* ── Score panel search ── */
     .search-bar { display: flex; align-items: center; gap: 8px; background: #f5f7ff; border: 1px solid #e0e0e0; border-radius: 10px; padding: 8px 14px; }
     .search-bar .search-icon { color: #9e9e9e; font-size: 20px; width: 20px; height: 20px; flex-shrink: 0; }
@@ -1707,20 +1759,58 @@ export class AdminScoresComponent implements OnInit {
   locEditDisplayName = '';
   locSaving          = signal(false);
 
+  private nowISTString(): string {
+    return new Date().toLocaleString('sv', { timeZone: 'Asia/Kolkata' }).replace(' ', 'T');
+  }
+
+  private isPast(matchTime: string): boolean {
+    if (!matchTime) return false;
+    return matchTime < this.nowISTString();
+  }
+
+  showPastAdmin = signal(false);
+
+  // Matches needing attention: upcoming + live + past without results updated yet (no stats)
   finishedMatches = computed(() => {
-    const all = [...this.matches()].sort((a, b) =>
-      new Date(a.matchTime).getTime() - new Date(b.matchTime).getTime()
+    const all = [...this.matches()]
+      .filter(m => m.stage !== 'GROUP')
+      .sort((a, b) => new Date(a.matchTime).getTime() - new Date(b.matchTime).getTime());
+    // Show: LIVE, future matches, and past matches where results haven't been saved (COMPLETED but no score, or still UPCOMING)
+    return all.filter(m =>
+      m.status === 'LIVE' ||
+      !this.isPast(m.matchTime) ||
+      (this.isPast(m.matchTime) && m.status !== 'COMPLETED')
     );
-    // Knockout matches only — completed ones stay permanently, pending ones shown for upcoming fetch
-    const knockoutCompleted = all.filter(m => m.stage !== 'GROUP' && m.status === 'COMPLETED');
-    const knockoutPending = all.filter(m => m.stage !== 'GROUP' && m.status !== 'COMPLETED');
-    return [...knockoutCompleted, ...knockoutPending];
+  });
+
+  // Past matches where results are already saved (COMPLETED and past kickoff)
+  pastAdminMatches = computed(() => {
+    const all = [...this.matches()]
+      .filter(m => m.stage !== 'GROUP')
+      .sort((a, b) => new Date(b.matchTime).getTime() - new Date(a.matchTime).getTime());
+    return all.filter(m =>
+      m.status === 'COMPLETED' && this.isPast(m.matchTime)
+    );
   });
 
   filteredMatches = computed(() => {
     const raw = this.scoreSearchQuery().trim().toLowerCase();
     const q = this.normaliseMonth(raw);
     const list = this.finishedMatches();
+    if (!q) return list;
+    return list.filter(m => {
+      const nameA = this.teamName(m, 'A');
+      const nameB = this.teamName(m, 'B');
+      const teams = `${nameA} ${nameB}`.toLowerCase();
+      const date = this.formatShortDate(m.matchTime).toLowerCase();
+      return teams.includes(q) || date.includes(q);
+    });
+  });
+
+  filteredPastAdminMatches = computed(() => {
+    const raw = this.scoreSearchQuery().trim().toLowerCase();
+    const q = this.normaliseMonth(raw);
+    const list = this.pastAdminMatches();
     if (!q) return list;
     return list.filter(m => {
       const nameA = this.teamName(m, 'A');

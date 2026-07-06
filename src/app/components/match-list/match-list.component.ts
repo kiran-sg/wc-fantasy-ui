@@ -18,6 +18,55 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
 
     <app-points-guide [collapsible]="true" [compact]="true" />
 
+    @if (pastMatches().length > 0) {
+      <div class="past-banner" (click)="showPast.set(!showPast())">
+        <span>🕘 {{ pastMatches().length }} previous match{{ pastMatches().length > 1 ? 'es' : '' }}</span>
+        <span class="past-chevron">{{ showPast() ? '▲' : '▼' }}</span>
+      </div>
+      @if (showPast()) {
+        @for (match of pastMatches(); track match.id) {
+          <mat-card class="match-card past-match-card" appearance="outlined">
+            <div class="match-header">
+              <span class="match-stage">{{ matchLabel(match) }}</span>
+              <span class="status-badge" [class]="match.status.toLowerCase()">{{ statusLabel(match) || '✅ Full Time' }}</span>
+            </div>
+            <div class="teams">
+              <div class="team">
+                @if (match.teamA?.flagUrl) { <img class="team-flag" [src]="match.teamA!.flagUrl" [alt]="match.teamA!.name"> }
+                <span class="team-name">{{ teamName(match, 'A') }}</span>
+              </div>
+              <div class="vs-col">
+                <span class="score">{{ match.scoreA ?? '?' }} – {{ match.scoreB ?? '?' }}</span>
+              </div>
+              <div class="team">
+                @if (match.teamB?.flagUrl) { <img class="team-flag" [src]="match.teamB!.flagUrl" [alt]="match.teamB!.name"> }
+                <span class="team-name">{{ teamName(match, 'B') }}</span>
+              </div>
+            </div>
+            @if (hasStats(match.id)) {
+              <div class="scorers-row">
+                <div class="scorers-side scorers-left">
+                  @for (s of scorers(match.id, match.teamA?.id); track s.name) {
+                    <span class="scorer-entry">⚽ {{ s.name }}{{ s.count > 1 ? ' ×' + s.count : '' }}{{ s.og ? ' (OG)' : '' }}</span>
+                  }
+                </div>
+                <div class="scorers-divider"></div>
+                <div class="scorers-side scorers-right">
+                  @for (s of scorers(match.id, match.teamB?.id); track s.name) {
+                    <span class="scorer-entry">⚽ {{ s.name }}{{ s.count > 1 ? ' ×' + s.count : '' }}{{ s.og ? ' (OG)' : '' }}</span>
+                  }
+                </div>
+              </div>
+            }
+            <div class="match-info">
+              <span>🕐 {{ formatDate(match.matchTime) }}</span>
+              <span>🏟️ {{ cleanVenue(match.venue) }}</span>
+            </div>
+          </mat-card>
+        }
+      }
+    }
+
     @if (loading()) {
       <div class="loading">Loading matches...</div>
     }
@@ -128,26 +177,52 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
     .match-info { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11px; color: #666; margin-top: 2px; }
     .actions { margin-top: 10px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
     .actions a, .actions button { font-size: 13px !important; min-height: 36px; }
+    .past-banner {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 16px; margin-bottom: 10px; border-radius: 10px;
+      background: #f3f4f6; border: 1px solid #d1d5db;
+      cursor: pointer; font-size: 13px; font-weight: 600; color: #374151;
+      user-select: none;
+    }
+    .past-banner:hover { background: #e5e7eb; }
+    .past-chevron { font-size: 11px; color: #6b7280; }
+    .past-match-card { opacity: 0.75; }
   `]
 })
 export class MatchListComponent implements OnInit {
   private api = inject(ApiService);
   auth = inject(AuthService);
   matches = signal<Match[]>([]);
+  pastMatches = signal<Match[]>([]);
+  showPast = signal(false);
   loading = signal(true);
   // matchId → raw stats array
   private statsMap = signal<Record<number, any[]>>({});
 
+  // Returns current time as an IST-naive string (e.g. "2026-07-06T14:30:00")
+  // matchTime from backend is stored as IST-naive, so we compare like-for-like.
+  private nowISTString(): string {
+    return new Date().toLocaleString('sv', { timeZone: 'Asia/Kolkata' }).replace(' ', 'T');
+  }
+
+  isPast(matchTime: string): boolean {
+    if (!matchTime) return false;
+    return matchTime < this.nowISTString();
+  }
+
   ngOnInit() {
     this.api.getMatches().subscribe({
       next: (m) => {
-        const sorted = m
+        const nonGroup = m
           .filter(x => x.stage !== 'GROUP')
           .sort((a, b) => new Date(a.matchTime).getTime() - new Date(b.matchTime).getTime());
-        this.matches.set(sorted);
+
+        this.matches.set(nonGroup.filter(x => x.status === 'LIVE' || !this.isPast(x.matchTime)));
+        this.pastMatches.set(nonGroup.filter(x => x.status !== 'LIVE' && this.isPast(x.matchTime)).reverse());
         this.loading.set(false);
+
         // Fetch stats for completed/live matches
-        sorted
+        nonGroup
           .filter(match => match.status === 'COMPLETED' || match.status === 'LIVE')
           .forEach(match => this.loadStats(match.id));
       },
@@ -243,6 +318,6 @@ export class MatchListComponent implements OnInit {
   }
 
   cleanVenue(venue: string): string {
-    return venue?.replace(/\s*\[#\d+\]/, '') || '';
+    return venue?.replace(/\s*\[#[^\]]+\]/, '') || '';
   }
 }
