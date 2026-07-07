@@ -36,7 +36,7 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
                 <span class="team-name">{{ teamName(match, 'A') }}</span>
               </div>
               <div class="vs-col">
-                <span class="score">{{ match.scoreA ?? '?' }} – {{ match.scoreB ?? '?' }}</span>
+                <span class="score">{{ match.scoreA }} – {{ match.scoreB }}</span>
               </div>
               <div class="team">
                 @if (match.teamB?.flagUrl) { <img class="team-flag" [src]="match.teamB!.flagUrl" [alt]="match.teamB!.name"> }
