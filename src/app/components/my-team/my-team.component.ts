@@ -88,9 +88,9 @@ const BENCH_ROW: SlotRef[] = [
     <div class="hb-deadline">
       <div class="hb-dl-lbl">Transfer window</div>
       @if (windowOpen()) {
-        <div class="hb-dl-val win-open">OPEN · closes {{ fmtHour(currentConfig()?.windowCloseHour ?? 19) }}</div>
+        <div class="hb-dl-val win-open">OPEN · locks {{ lockDeadlineLabel() ?? fmtHour(currentConfig()?.windowCloseHour ?? 21) }}</div>
       } @else {
-        <div class="hb-dl-val win-closed">CLOSED · opens {{ fmtHour(currentConfig()?.windowOpenHour ?? 12) }}</div>
+        <div class="hb-dl-val win-closed">CLOSED</div>
       }
       <div class="hb-dl-sub">Next match: {{ deadlineLabel() }}</div>
     </div>
@@ -236,7 +236,7 @@ const BENCH_ROW: SlotRef[] = [
           <div class="tp-stage-col">
             <span class="tp-stage-badge">{{ stageLabel() }}</span>
             <span class="tp-window-lbl">
-              Window: {{ fmtHour(currentConfig()?.windowOpenHour ?? 12) }}–{{ fmtHour(currentConfig()?.windowCloseHour ?? 19) }} daily
+              Locks: {{ lockDeadlineLabel() ?? fmtHour(currentConfig()?.windowCloseHour ?? 21) }}
             </span>
           </div>
           <div class="tp-divider"></div>
@@ -431,7 +431,7 @@ const BENCH_ROW: SlotRef[] = [
       <!-- Save button + window-closed inline -->
       <div class="save-row" (click)="$event.stopPropagation()">
         <button class="save-btn" [disabled]="!canSave()" (click)="confirmSave()">
-          @if (!windowOpen()) { 🔒 Window closed · Opens {{ fmtHour(currentConfig()?.windowOpenHour ?? 12) }} }
+          @if (!windowOpen()) { 🔒 Window closed · Opens {{ lockDeadlineLabel() ?? fmtHour(currentConfig()?.windowOpenHour ?? 12) }} }
           @else { {{ saveButtonLabel() }} }
         </button>
       </div>
@@ -1507,10 +1507,58 @@ export class MyTeamComponent implements OnInit {
     return c ? c.countryLimit : (DEFAULT_COUNTRY_LIMIT[this.currentStage()] ?? 3);
   });
 
+  // Compute the lock deadline for the next match.
+  // Lock falls on the calendar day before the match (in tz), at windowCloseHour —
+  // unless the match kicks off on or after windowCloseHour that same day, in which
+  // case lockDay == matchDay.
+  lockDeadline = computed<Date | null>(() => {
+    const m = this.nextMatch();
+    if (!m) return null;
+    const c         = this.currentConfig();
+    const closeHour = c?.windowCloseHour ?? 21;
+
+    // matchTime is stored as IST LocalDateTime — parse date/hour directly from the ISO string
+    // e.g. "2026-07-10T01:30:00" → datePart="2026-07-10", matchHour=1
+    const isoStr = m.matchTime as string;
+    const tIdx = isoStr.indexOf('T');
+    if (tIdx < 0) return null;
+    const datePart = isoStr.substring(0, tIdx);           // "2026-07-10"
+    const matchHour = parseInt(isoStr.substring(tIdx + 1, tIdx + 3), 10); // 1
+    const [y, mo, d] = datePart.split('-').map(Number);
+
+    // lockDay = matchDay - 1 if match starts before closeHour, otherwise matchDay
+    let lockDateStr: string;
+    if (matchHour < closeHour) {
+      const prev = new Date(Date.UTC(y, mo - 1, d - 1));
+      lockDateStr = prev.toISOString().substring(0, 10);
+    } else {
+      lockDateStr = datePart;
+    }
+
+    // Build lock instant as explicit IST ISO string (Asia/Kolkata = UTC+05:30, no DST)
+    return new Date(`${lockDateStr}T${String(closeHour).padStart(2, '0')}:00:00+05:30`);
+  });
+
+  lockDeadlineLabel = computed(() => {
+    const dl = this.lockDeadline();
+    if (!dl) return null;
+    const c  = this.currentConfig();
+    const tz = c?.windowTimezone ?? 'Asia/Kolkata';
+    return dl.toLocaleString('en-US', {
+      timeZone: tz, month: 'short', day: 'numeric',
+      hour: 'numeric', minute: '2-digit', hour12: true
+    });
+  });
+
   deadlineLabel = computed(() => {
     const m = this.nextMatch();
     if (!m) return 'TBD';
-    return new Date(m.matchTime).toLocaleDateString('en-US', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+    const c  = this.currentConfig();
+    const tz = c?.windowTimezone ?? 'Asia/Kolkata';
+    return new Date(m.matchTime).toLocaleString('en-US', {
+      timeZone: tz, month: 'short', day: 'numeric',
+      hour: 'numeric', minute: '2-digit', hour12: true
+    });
   });
 
   pendingTransfers = computed(() => {
@@ -1603,21 +1651,30 @@ export class MyTeamComponent implements OnInit {
   });
 
   windowOpen = computed(() => {
-    const c = this.currentConfig();
+    const dl = this.lockDeadline();
+    // No upcoming match → always open
+    if (!dl) return true;
+
+    const now = new Date();
+    // Locked: now is past the deadline (and before match, but we keep locked until round advances)
+    if (now >= dl) return false;
+
+    // Before the deadline — open only on lockDay (within openHour window), or completely open on earlier days
+    const c         = this.currentConfig();
     const openHour  = c?.windowOpenHour  ?? 12;
-    const closeHour = c?.windowCloseHour ?? 19;
+    const closeHour = c?.windowCloseHour ?? 21;
     const tz        = c?.windowTimezone  ?? 'Asia/Kolkata';
-    try {
-      const hour = new Date().toLocaleString('en-US', { hour: 'numeric', hour12: false, timeZone: tz });
-      const h = parseInt(hour, 10);
-      return h >= openHour && h < closeHour;
-    } catch {
-      // Fallback to IST offset if Intl timezone lookup fails
-      const now = new Date();
-      const utcMs = now.getTime() + now.getTimezoneOffset() * 60 * 1000;
-      const h = new Date(utcMs + 5.5 * 3600 * 1000).getHours();
-      return h >= openHour && h < closeHour;
-    }
+
+    // Determine lockDay date string in tz
+    const lockDayStr = dl.toLocaleDateString('en-CA', { timeZone: tz }); // YYYY-MM-DD
+    const todayStr   = now.toLocaleDateString('en-CA', { timeZone: tz });
+
+    if (todayStr < lockDayStr) return true; // days before lockDay → fully open
+    if (todayStr > lockDayStr) return false; // past lockDay → locked (shouldn't reach here due to dl check)
+
+    // todayStr === lockDayStr: apply hour window
+    const h = parseInt(now.toLocaleString('en-US', { hour: 'numeric', hour12: false, timeZone: tz }), 10);
+    return h >= openHour && h < closeHour;
   });
 
   canSave = computed(() =>
