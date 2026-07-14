@@ -2,7 +2,7 @@ import { Component, inject, OnInit, signal, computed, HostListener } from '@angu
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
-import { Player, UserTeam, Match, UserTransferRecord, RoundConfig, UserTeamSnapshot } from '../../models/models';
+import { Player, UserTeam, Match, UserTransferRecord, RoundConfig, UserTeamSnapshot, WindowStatus } from '../../models/models';
 
 const BUDGET = 105_000_000;
 const TOTAL_PLAYERS = 15;
@@ -91,6 +91,9 @@ const BENCH_ROW: SlotRef[] = [
         <div class="hb-dl-val win-open">OPEN · locks {{ lockDeadlineLabel() ?? fmtHour(currentConfig()?.windowCloseHour ?? 21) }}</div>
       } @else {
         <div class="hb-dl-val win-closed">CLOSED</div>
+        @if (windowStatus()?.message) {
+          <div class="hb-dl-reason">{{ windowStatus()!.message }}</div>
+        }
       }
       <div class="hb-dl-sub">Next match: {{ deadlineLabel() }}</div>
     </div>
@@ -881,6 +884,7 @@ const BENCH_ROW: SlotRef[] = [
     .hb-dl-sub { color: #6b7280; font-size: 9px; margin-top: 1px; }
     .win-open   { color: #4ade80; }
     .win-closed { color: #f87171; }
+    .hb-dl-reason { color: #fca5a5; font-size: 9px; margin-top: 2px; max-width: 180px; line-height: 1.3; }
     .hb-pills { display: flex; gap: 6px; }
     .hb-pill { background: #1a1a1a; border: 1px solid #333; border-radius: 10px; padding: 6px 14px; text-align: center; min-width: 70px; }
     .hb-pill-val { color: #fff; font-size: 17px; font-weight: 900; line-height: 1; }
@@ -1432,6 +1436,7 @@ export class MyTeamComponent implements OnInit {
   transferRecord = signal<UserTransferRecord | null>(null);
   roundConfigs        = signal<RoundConfig[]>([]);
   activeRoundConfig   = signal<RoundConfig | null>(null);
+  windowStatus        = signal<WindowStatus | null>(null);
 
   starterSlots = signal<(number | null)[]>(Array(11).fill(null));
   benchSlots   = signal<(number | null)[]>(Array(4).fill(null));
@@ -1650,32 +1655,8 @@ export class MyTeamComponent implements OnInit {
     return [...this.allPickedIds()].filter(id => elim.has(id)).length;
   });
 
-  windowOpen = computed(() => {
-    const dl = this.lockDeadline();
-    // No upcoming match → always open
-    if (!dl) return true;
-
-    const now = new Date();
-    // Locked: now is past the deadline (and before match, but we keep locked until round advances)
-    if (now >= dl) return false;
-
-    // Before the deadline — open only on lockDay (within openHour window), or completely open on earlier days
-    const c         = this.currentConfig();
-    const openHour  = c?.windowOpenHour  ?? 12;
-    const closeHour = c?.windowCloseHour ?? 21;
-    const tz        = c?.windowTimezone  ?? 'Asia/Kolkata';
-
-    // Determine lockDay date string in tz
-    const lockDayStr = dl.toLocaleDateString('en-CA', { timeZone: tz }); // YYYY-MM-DD
-    const todayStr   = now.toLocaleDateString('en-CA', { timeZone: tz });
-
-    if (todayStr < lockDayStr) return true; // days before lockDay → fully open
-    if (todayStr > lockDayStr) return false; // past lockDay → locked (shouldn't reach here due to dl check)
-
-    // todayStr === lockDayStr: apply hour window
-    const h = parseInt(now.toLocaleString('en-US', { hour: 'numeric', hour12: false, timeZone: tz }), 10);
-    return h >= openHour && h < closeHour;
-  });
+  // Server-authoritative: true when backend says window is open
+  windowOpen = computed(() => this.windowStatus()?.open ?? false);
 
   canSave = computed(() =>
     this.starterIds().size === 11 && this.benchIdsArr().length === 4 &&
@@ -1692,6 +1673,10 @@ export class MyTeamComponent implements OnInit {
     });
     this.api.getActiveRoundConfig().subscribe({
       next: active => this.activeRoundConfig.set(active),
+      error: () => {}
+    });
+    this.api.getWindowStatus().subscribe({
+      next: status => this.windowStatus.set(status),
       error: () => {}
     });
 

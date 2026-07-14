@@ -711,10 +711,12 @@ import { AdminDbComponent } from '../admin-db/admin-db.component';
                 <span class="rc-col">Close (hr)</span>
                 <span class="rc-col">Timezone</span>
                 <span class="rc-col rc-col-wide">Round Start (IST)</span>
+                <span class="rc-col rc-col-wide">FIFA Start (IST)</span>
+                <span class="rc-col">Closed</span>
                 <span class="rc-col"></span>
               </div>
               @for (row of rcRows(); track row.stage) {
-                <div class="rc-row" [class.rc-editing]="rcEditStage() === row.stage">
+                <div class="rc-row" [class.rc-editing]="rcEditStage() === row.stage" [class.rc-closed]="row.isRoundClosed">
                   <span class="rc-col rc-stage">
                     <span class="stage-badge">{{ row.stage }}</span>
                   </span>
@@ -725,6 +727,8 @@ import { AdminDbComponent } from '../admin-db/admin-db.component';
                     <span class="rc-col"><input class="rc-input" type="number" [(ngModel)]="rcEdit.windowCloseHour" min="1" max="24"></span>
                     <span class="rc-col"><input class="rc-input rc-tz" type="text" [(ngModel)]="rcEdit.windowTimezone"></span>
                     <span class="rc-col rc-col-wide"><input class="rc-input rc-dt" type="datetime-local" [(ngModel)]="rcEdit.roundStart" placeholder="yyyy-MM-ddTHH:mm"></span>
+                    <span class="rc-col rc-col-wide"><input class="rc-input rc-dt" type="datetime-local" [(ngModel)]="rcEdit.fifaRoundStart" placeholder="yyyy-MM-ddTHH:mm"></span>
+                    <span class="rc-col"></span>
                     <span class="rc-col rc-actions">
                       <button class="rc-save-btn" (click)="saveRcRow(row.stage)">Save</button>
                       <button class="rc-cancel-btn" (click)="rcEditStage.set(null)">Cancel</button>
@@ -736,6 +740,12 @@ import { AdminDbComponent } from '../admin-db/admin-db.component';
                     <span class="rc-col rc-val">{{ row.windowCloseHour }}:00</span>
                     <span class="rc-col rc-val rc-tz-val">{{ row.windowTimezone }}</span>
                     <span class="rc-col rc-col-wide rc-val rc-dt-val">{{ row.roundStart ? formatRoundStart(row.roundStart) : '—' }}</span>
+                    <span class="rc-col rc-col-wide rc-val rc-dt-val">{{ row.fifaRoundStart ? formatRoundStart(row.fifaRoundStart) : '—' }}</span>
+                    <span class="rc-col rc-val">
+                      <button class="rc-close-btn" [class.rc-close-active]="row.isRoundClosed" (click)="toggleRoundClosed(row)">
+                        {{ row.isRoundClosed ? '✅ Closed' : 'Mark Closed' }}
+                      </button>
+                    </span>
                     <span class="rc-col rc-actions">
                       <button class="rc-edit-btn" (click)="startRcEdit(row)">Edit</button>
                     </span>
@@ -1431,7 +1441,7 @@ import { AdminDbComponent } from '../admin-db/admin-db.component';
 
       /* Round config — hide wide cols, scroll */
       .rc-table { overflow-x: auto; }
-      .rc-header, .rc-row { grid-template-columns: 60px 52px 52px 52px 52px 90px; font-size: 10px; }
+      .rc-header, .rc-row { grid-template-columns: 60px 52px 52px 52px 52px 90px 90px 80px 80px; font-size: 10px; }
       .rc-col-wide, .rc-tz { display: none; }
       .rc-actions { flex-direction: column; gap: 3px; }
       .rc-edit-btn, .rc-save-btn, .rc-cancel-btn { padding: 3px 8px; font-size: 10px; }
@@ -1463,7 +1473,7 @@ import { AdminDbComponent } from '../admin-db/admin-db.component';
     .rc-wrap { padding-bottom: 32px; }
     .rc-loading { padding: 32px; text-align: center; color: #999; font-size: 13px; }
     .rc-table { border: 1px solid #e0e0e0; border-radius: 10px; overflow: hidden; margin-bottom: 12px; }
-    .rc-header, .rc-row { display: grid; grid-template-columns: 80px 1fr 1fr 1fr 1fr 1.8fr 2.2fr 130px; gap: 0; align-items: center; }
+    .rc-header, .rc-row { display: grid; grid-template-columns: 80px 1fr 1fr 1fr 1fr 1.8fr 2.2fr 2.2fr 90px 100px; gap: 0; align-items: center; }
     .rc-col-wide { min-width: 0; }
     .rc-header { background: #e8eaf6; padding: 8px 12px; font-size: 10px; font-weight: 700; color: #3949ab; text-transform: uppercase; letter-spacing: 0.3px; }
     .rc-row { border-top: 1px solid #f0f0f0; padding: 8px 12px; font-size: 13px; transition: background 0.1s; }
@@ -1482,6 +1492,11 @@ import { AdminDbComponent } from '../admin-db/admin-db.component';
     .rc-edit-btn:hover { background: #c5cae9; }
     .rc-save-btn { background: #1a237e; color: #fff; border: none; border-radius: 5px; padding: 4px 12px; font-size: 11px; font-weight: 700; cursor: pointer; }
     .rc-cancel-btn { background: #f5f5f5; color: #555; border: none; border-radius: 5px; padding: 4px 10px; font-size: 11px; font-weight: 700; cursor: pointer; }
+    .rc-close-btn { background: #fff3e0; color: #e65100; border: 1px solid #ffb74d; border-radius: 5px; padding: 3px 8px; font-size: 10px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+    .rc-close-btn:hover { background: #ffe0b2; }
+    .rc-close-btn.rc-close-active { background: #e8f5e9; color: #2e7d32; border-color: #81c784; }
+    .rc-close-btn.rc-close-active:hover { background: #c8e6c9; }
+    .rc-closed { background: #fafafa; opacity: 0.7; }
     .rc-toolbar { margin-bottom: 12px; }
     .rc-sync-btn { background: #e3f2fd; color: #1565c0; border: 1.5px solid #bbdefb; border-radius: 7px; padding: 6px 14px; font-size: 12px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; transition: background 0.12s; }
     .rc-sync-btn:hover:not(:disabled) { background: #bbdefb; }
@@ -1749,7 +1764,7 @@ export class AdminScoresComponent implements OnInit {
   rcLoading   = signal(false);
   rcSyncing   = signal(false);
   rcEditStage = signal<string | null>(null);
-  rcEdit: Partial<RoundConfig> = { freeTransfers: 0, countryLimit: 0, windowOpenHour: 0, windowCloseHour: 0, windowTimezone: '', roundStart: null };
+  rcEdit: Partial<RoundConfig> = { freeTransfers: 0, countryLimit: 0, windowOpenHour: 0, windowCloseHour: 0, windowTimezone: '', roundStart: null, fifaRoundStart: null };
   rcMsg       = signal('');
   rcMsgErr    = signal(false);
 
@@ -1769,6 +1784,23 @@ export class AdminScoresComponent implements OnInit {
       },
       error: err => {
         this.rcMsg.set('❌ ' + (err.error?.message || 'Save failed'));
+        this.rcMsgErr.set(true);
+      }
+    });
+  }
+
+  toggleRoundClosed(row: RoundConfig) {
+    const newVal = !row.isRoundClosed;
+    const action = newVal ? 'Close' : 'Re-open';
+    if (!confirm(`${action} round ${row.stage}? This will ${newVal ? 'open the next round\'s transfer window' : 're-open this round\'s transfers'}.`)) return;
+    this.api.setRoundClosed(row.stage, newVal).subscribe({
+      next: updated => {
+        this.rcRows.update(rows => rows.map(r => r.stage === row.stage ? updated : r));
+        this.rcMsg.set(`✅ ${row.stage} marked ${newVal ? 'closed' : 'open'}`);
+        this.rcMsgErr.set(false);
+      },
+      error: err => {
+        this.rcMsg.set('❌ ' + (err.error?.message || 'Failed to update round status'));
         this.rcMsgErr.set(true);
       }
     });

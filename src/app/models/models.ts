@@ -89,7 +89,15 @@ export interface RoundConfig {
   windowOpenHour: number;
   windowCloseHour: number;
   windowTimezone: string;
-  roundStart: string | null; // ISO datetime UTC — null means not yet scheduled
+  roundStart: string | null;
+  fifaRoundStart: string | null; // actual first FIFA match kickoff for this round (IST)
+  isRoundClosed: boolean;        // admin-set: true once round scores are settled
+}
+
+export interface WindowStatus {
+  open: boolean;
+  message: string;
+  stage: string;
 }
 
 export interface UserTransferRecord {

@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
-import { Team, Player, Match, UserSquad, AppUser, LeaderboardEntry, UserTeam, UserTeamMatchPoints, UserTransferRecord, UserTeamSnapshot, RoundConfig } from '../models/models';
+import { Team, Player, Match, UserSquad, AppUser, LeaderboardEntry, UserTeam, UserTeamMatchPoints, UserTransferRecord, UserTeamSnapshot, RoundConfig, WindowStatus } from '../models/models';
 import { environment } from '../../environments/environment';
 
 @Injectable({ providedIn: 'root' })
@@ -114,6 +114,14 @@ export class ApiService {
 
   syncRoundStarts(): Observable<RoundConfig[]> {
     return this.http.post<RoundConfig[]>(`${this.base}/round-config/sync-starts`, {});
+  }
+
+  getWindowStatus(): Observable<WindowStatus> {
+    return this.http.get<WindowStatus>(`${this.base}/round-config/window-status`);
+  }
+
+  setRoundClosed(stage: string, isRoundClosed: boolean): Observable<RoundConfig> {
+    return this.http.patch<RoundConfig>(`${this.base}/round-config/${stage}/close`, { isRoundClosed });
   }
 
   getAllPlayers(): Observable<Player[]> {
