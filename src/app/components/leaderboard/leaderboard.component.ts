@@ -21,7 +21,7 @@ import { LeaderboardEntry } from '../../models/models';
             </tr>
           </thead>
           <tbody>
-            @for (entry of overall(); track entry.user.id) {
+            @for (entry of overall(); track entry.userId) {
               <tr [class.lb-top3]="entry.rank <= 3">
                 <td class="col-rank">
                   @if (entry.rank === 1) { <span class="medal gold">🥇</span> }
@@ -29,8 +29,8 @@ import { LeaderboardEntry } from '../../models/models';
                   @else if (entry.rank === 3) { <span class="medal bronze">🥉</span> }
                   @else { <span class="rank-num">{{ entry.rank }}</span> }
                 </td>
-                <td class="col-name">{{ entry.user.displayName || entry.user.username }}</td>
-                <td class="col-pts">{{ entry.user.totalPoints }}</td>
+                <td class="col-name">{{ entry.displayName || entry.username }}</td>
+                <td class="col-pts">{{ entry.finalPoints }}</td>
               </tr>
             }
             @if (overall().length === 0) {

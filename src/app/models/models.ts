@@ -49,7 +49,11 @@ export interface UserSquad {
 
 export interface LeaderboardEntry {
   rank: number;
-  user: AppUser;
+  finalPoints: number;
+  userId: number;
+  username: string;
+  displayName: string;
+  location?: string;
 }
 
 export interface AppUser {
@@ -57,6 +61,7 @@ export interface AppUser {
   username: string;
   displayName: string;
   totalPoints: number;
+  missedPoints: number;
   isAdmin?: boolean;
   location?: string;
 }
