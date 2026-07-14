@@ -434,7 +434,7 @@ const BENCH_ROW: SlotRef[] = [
       <!-- Save button + window-closed inline -->
       <div class="save-row" (click)="$event.stopPropagation()">
         <button class="save-btn" [disabled]="!canSave()" (click)="confirmSave()">
-          @if (!windowOpen()) { 🔒 Window closed · Opens {{ lockDeadlineLabel() ?? fmtHour(currentConfig()?.windowOpenHour ?? 12) }} }
+          @if (!windowOpen()) { 🔒 Window closed · Opens {{ fmtHour(currentConfig()?.windowOpenHour ?? 12) }} }
           @else { {{ saveButtonLabel() }} }
         </button>
       </div>
