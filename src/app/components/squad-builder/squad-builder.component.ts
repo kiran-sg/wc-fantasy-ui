@@ -32,8 +32,11 @@ function parseFormation(f: string): string[] {
         <span class="team-a">{{ match()!.teamA?.name ?? match()!.teamALabel ?? 'TBD' }}</span>
         <span class="vs-sep">vs</span>
         <span class="team-b">{{ match()!.teamB?.name ?? match()!.teamBLabel ?? 'TBD' }}</span>
-        <span class="stage-tag">{{ match()!.stage }}</span>
+        <span class="stage-tag">{{ stageLabel(match()!.stage) }}</span>
       </div>
+      @if (stageNote(match()!.stage); as note) {
+        <div class="stage-note-bar" [class]="'snb-' + match()!.stage.toLowerCase()">{{ note }}</div>
+      }
     }
     <div class="budget-row">
       <div class="bud-left">
@@ -239,6 +242,11 @@ function parseFormation(f: string): string[] {
     .vs-sep { color: #5c7a9e; font-size: 11px; font-weight: 600; }
     .stage-tag { background: #1e3a5f; color: #82b1ff; font-size: 10px; font-weight: 700;
                  padding: 2px 7px; border-radius: 8px; letter-spacing: .5px; text-transform: uppercase; }
+    .stage-note-bar {
+      font-size: 11px; font-weight: 600; padding: 5px 0 7px;
+      line-height: 1.4; letter-spacing: 0.2px;
+    }
+    .snb-final { color: #ffd600; }
     .budget-row { display: flex; align-items: center; gap: 8px; }
     .bud-left { display: flex; flex-direction: column; min-width: 80px; }
     .bud-lbl { color: #5c7a9e; font-size: 9px; text-transform: uppercase; letter-spacing: .5px; }
@@ -746,6 +754,16 @@ export class SquadBuilderComponent implements OnInit {
           }
         }));
     });
+  }
+
+  private readonly STAGE_LABELS: Record<string, string> = {
+    GROUP: 'Group Stage', R32: 'Round of 32', R16: 'Round of 16',
+    QF: 'Quarter-Final', SF: 'Semi-Final', FINAL: 'Final',
+  };
+
+  stageLabel(stage: string): string { return this.STAGE_LABELS[stage] ?? stage; }
+  stageNote(stage: string): string | null {
+    return stage === 'FINAL' ? '🏆 Final round — includes the 3rd Place Play-off and the World Cup Final' : null;
   }
 
   posColor(pos: string): string { return POS_BG[pos] ?? '#555'; }

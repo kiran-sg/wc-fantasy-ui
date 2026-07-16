@@ -81,7 +81,6 @@ import { PointsGuideComponent } from '../points-guide/points-guide.component';
             </span>
           }
         </div>
-
         <div class="teams">
           <div class="team">
             @if (match.teamA?.flagUrl) {

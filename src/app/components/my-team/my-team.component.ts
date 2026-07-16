@@ -172,6 +172,7 @@ const BENCH_ROW: SlotRef[] = [
             <div class="hist-round-header">
               <div class="hist-round-left">
                 <span class="hist-stage-badge">{{ stageNameFor(snap.stage) }}</span>
+                @if (snap.stage === 'FINAL') { <span class="hist-stage-context hist-final">🏆 3rd Place + Final</span> }
                 <span class="hist-formation">{{ snap.formation }}</span>
               </div>
               <div class="hist-pts-pill">
@@ -241,6 +242,9 @@ const BENCH_ROW: SlotRef[] = [
             <span class="tp-window-lbl">
               Locks: {{ lockDeadlineLabel() ?? fmtHour(currentConfig()?.windowCloseHour ?? 21) }}
             </span>
+            @if (stageContextNote(); as note) {
+              <span class="tp-round-note">🏆 {{ note }}</span>
+            }
           </div>
           <div class="tp-divider"></div>
           <div class="tp-stat">
@@ -782,6 +786,10 @@ const BENCH_ROW: SlotRef[] = [
       padding: 3px 10px; border-radius: 6px;
     }
     .hist-formation { color: #6b7280; font-size: 11px; font-weight: 600; }
+    .hist-stage-context {
+      font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 6px;
+      background: rgba(255,214,0,0.15); color: #fbbf24; border: 1px solid rgba(255,214,0,0.3);
+    }
     .hist-pts-pill {
       display: flex; align-items: baseline; gap: 3px;
       background: #064e3b; border: 1px solid #065f46; border-radius: 20px; padding: 4px 12px;
@@ -902,6 +910,12 @@ const BENCH_ROW: SlotRef[] = [
 
     /* ── PITCH COLUMN ── */
     .pitch-col { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: 6px 10px 0; overflow: hidden; position: relative; }
+
+    /* Final-round note — third line inside tp-stage-col, never affects row height */
+    .tp-round-note {
+      color: #ffd600; font-size: 9px; font-weight: 600;
+      line-height: 1.3; white-space: normal; margin-top: 2px;
+    }
 
     /* Transfer panel */
     .transfer-panel { display: flex; align-items: center; background: #0d0d0d; border: 1px solid #1f2937; border-radius: 8px; padding: 6px 10px; margin-bottom: 5px; flex-shrink: 0; gap: 2px; flex-wrap: wrap; }
@@ -1592,6 +1606,12 @@ export class MyTeamComponent implements OnInit {
   });
 
   stageLabel = computed(() => STAGE_LABEL[this.currentStage()] ?? this.currentStage());
+
+  stageContextNote = computed((): string | null =>
+    this.currentStage() === 'FINAL'
+      ? '2 matches this round: 3rd Place Play-off + World Cup Final'
+      : null
+  );
 
   saveButtonLabel = computed(() => {
     if (!this.existingTeam()) return 'Save My Team';
