@@ -1,5 +1,6 @@
 import { Component, inject, OnInit, signal, computed, HostListener } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 import { Player, UserTeam, Match, UserTransferRecord, RoundConfig, UserTeamSnapshot, WindowStatus } from '../../models/models';
@@ -72,7 +73,7 @@ const BENCH_ROW: SlotRef[] = [
 @Component({
   selector: 'app-my-team',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, RouterLink],
   template: `
 <div class="page-wrap" (click)="closePanel()">
 
@@ -86,16 +87,20 @@ const BENCH_ROW: SlotRef[] = [
       </div>
     </div>
     <div class="hb-deadline">
-      <div class="hb-dl-lbl">Transfer window</div>
+      <div class="hb-dl-lbl">{{ leagueFinished() ? 'League status' : 'Transfer window' }}</div>
       @if (windowOpen()) {
         <div class="hb-dl-val win-open">OPEN · locks {{ lockDeadlineLabel() ?? fmtHour(currentConfig()?.windowCloseHour ?? 21) }}</div>
+      } @else if (leagueFinished()) {
+        <div class="hb-dl-val win-closed">Season ended</div>
       } @else {
         <div class="hb-dl-val win-closed">CLOSED</div>
         @if (windowStatus()?.message) {
           <div class="hb-dl-reason">{{ windowStatus()!.message }}</div>
         }
       }
-      <div class="hb-dl-sub">Next match: {{ deadlineLabel() }}</div>
+      @if (!leagueFinished()) {
+        <div class="hb-dl-sub">Next match: {{ deadlineLabel() }}</div>
+      }
     </div>
     <div class="hb-pills">
       <div class="hb-pill">
@@ -138,6 +143,14 @@ const BENCH_ROW: SlotRef[] = [
       </div>
     }
   </div>
+
+  <!-- League finished banner — FINAL round closed, no changes possible ever again -->
+  @if (leagueFinished()) {
+    <div class="league-over-banner">
+      Season ended. Squads are locked.
+      <a class="league-over-link" routerLink="/leaderboard">View leaderboard →</a>
+    </div>
+  }
 
   <!-- Team load error banner -->
   @if (teamLoadFailed()) {
@@ -235,7 +248,7 @@ const BENCH_ROW: SlotRef[] = [
     <div class="pitch-col" (click)="$event.stopPropagation()">
 
       <!-- Transfer panel — limited stages (R32 onwards) -->
-      @if (existingTeam() && !isUnlimitedStage()) {
+      @if (existingTeam() && !isUnlimitedStage() && !leagueFinished()) {
         <div class="transfer-panel">
           <div class="tp-stage-col">
             <span class="tp-stage-badge">{{ stageLabel() }}</span>
@@ -280,7 +293,7 @@ const BENCH_ROW: SlotRef[] = [
       }
 
       <!-- Transfer panel — unlimited stage (GROUP) -->
-      @if (existingTeam() && isUnlimitedStage()) {
+      @if (existingTeam() && isUnlimitedStage() && !leagueFinished()) {
         <div class="transfer-panel">
           <div class="tp-stage-col">
             <span class="tp-stage-badge">{{ stageLabel() }}</span>
@@ -438,7 +451,8 @@ const BENCH_ROW: SlotRef[] = [
       <!-- Save button + window-closed inline -->
       <div class="save-row" (click)="$event.stopPropagation()">
         <button class="save-btn" [disabled]="!canSave()" (click)="confirmSave()">
-          @if (!windowOpen()) { 🔒 Window closed · Opens {{ fmtHour(currentConfig()?.windowOpenHour ?? 12) }} }
+          @if (leagueFinished()) { 🔒 Season ended · Squads locked }
+          @else if (!windowOpen()) { 🔒 Window closed · Opens {{ fmtHour(currentConfig()?.windowOpenHour ?? 12) }} }
           @else { {{ saveButtonLabel() }} }
         </button>
       </div>
@@ -729,6 +743,18 @@ const BENCH_ROW: SlotRef[] = [
   `,
   styles: [`
     :host { display: block; }
+
+    .league-over-banner {
+      background: linear-gradient(135deg, #78350f, #451a03); color: #fef3c7;
+      font-size: 13px; font-weight: 700; padding: 10px 16px;
+      display: flex; align-items: center; justify-content: center;
+      gap: 12px; flex-shrink: 0; flex-wrap: wrap; text-align: center;
+      border-bottom: 1px solid #92400e;
+    }
+    .league-over-link {
+      color: #fde68a; font-weight: 800; text-decoration: underline;
+      white-space: nowrap;
+    }
 
     .team-load-error {
       background: #7f1d1d; color: #fef2f2; font-size: 13px; font-weight: 600;
@@ -1677,6 +1703,8 @@ export class MyTeamComponent implements OnInit {
 
   // Server-authoritative: true when backend says window is open
   windowOpen = computed(() => this.windowStatus()?.open ?? false);
+  // True once the FINAL round is closed — league is over, squads permanently locked
+  leagueFinished = computed(() => this.windowStatus()?.leagueFinished ?? false);
 
   canSave = computed(() =>
     this.starterIds().size === 11 && this.benchIdsArr().length === 4 &&

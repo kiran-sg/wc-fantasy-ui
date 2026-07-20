@@ -103,6 +103,7 @@ export interface WindowStatus {
   open: boolean;
   message: string;
   stage: string;
+  leagueFinished?: boolean; // true once the FINAL round is closed — league is over, squads permanently locked
 }
 
 export interface UserTransferRecord {
